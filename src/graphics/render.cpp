@@ -194,6 +194,11 @@ void IrrDriver::renderGLSL(float dt)
 		PROFILER_PUSH_CPU_MARKER("- Solid Pass 1", 0xFF, 0x00, 0x00);
         m_renderpass = scene::ESNRP_CAMERA | scene::ESNRP_SOLID;
         irr_driver->setPhase(SOLID_NORMAL_AND_DEPTH_PASS);
+		glEnable(GL_DEPTH_TEST);
+		glDisable(GL_ALPHA_TEST);
+		glDepthMask(GL_TRUE);
+		glDisable(GL_BLEND);
+		glDepthFunc(GL_LEQUAL);
         m_scene_manager->drawAll(m_renderpass);
         irr_driver->setProjMatrix(irr_driver->getVideoDriver()->getTransform(video::ETS_PROJECTION));
         irr_driver->setViewMatrix(irr_driver->getVideoDriver()->getTransform(video::ETS_VIEW));
@@ -224,6 +229,10 @@ void IrrDriver::renderGLSL(float dt)
 		PROFILER_POP_CPU_MARKER();
 
 		PROFILER_PUSH_CPU_MARKER("- Solid Pass 2", 0x00, 0x00, 0xFF);
+		glEnable(GL_DEPTH_TEST);
+		glDisable(GL_ALPHA_TEST);
+		glDepthMask(GL_FALSE);
+		glDisable(GL_BLEND);
         irr_driver->setPhase(SOLID_LIT_PASS);
         m_renderpass = scene::ESNRP_CAMERA | scene::ESNRP_SOLID;
         m_scene_manager->drawAll(m_renderpass);
@@ -287,6 +296,8 @@ void IrrDriver::renderGLSL(float dt)
         // We need to re-render camera due to the per-cam-node hack.
         PROFILER_PUSH_CPU_MARKER("- Transparent Pass", 0xFF, 0x00, 0x00);
 		irr_driver->setPhase(TRANSPARENT_PASS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
 		m_renderpass = scene::ESNRP_CAMERA | scene::ESNRP_TRANSPARENT;
         m_scene_manager->drawAll(m_renderpass);
 		PROFILER_POP_CPU_MARKER();
