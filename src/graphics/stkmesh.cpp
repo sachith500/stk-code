@@ -929,9 +929,10 @@ void STKMesh::render()
 			}
 			if (!isObject(material.MaterialType))
 			{
+#ifdef DEBUG
+				Log::warn("material", "Unhandled (static) material type : %d", material.MaterialType);
+#endif
 				continue;
-				driver->setMaterial(material);
-				driver->drawMeshBuffer(mb);
 			}
 
 			// only render transparent buffer if this is the transparent render pass
