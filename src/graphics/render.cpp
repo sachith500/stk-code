@@ -311,7 +311,14 @@ void IrrDriver::renderGLSL(float dt)
 
 		PROFILER_PUSH_CPU_MARKER("- Particles", 0xFF, 0xFF, 0x00);
 		m_renderpass = scene::ESNRP_CAMERA | scene::ESNRP_TRANSPARENT_EFFECT;
+		glDepthMask(GL_FALSE);
+		glDisable(GL_CULL_FACE);
+		glEnable(GL_BLEND);
 		m_scene_manager->drawAll(m_renderpass);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glActiveTexture(GL_TEXTURE0);
+		glDisable(GL_BLEND);
+		glBindVertexArray(0);
 		PROFILER_POP_CPU_MARKER();
 
         PROFILER_PUSH_CPU_MARKER("- Displacement", 0x00, 0x00, 0xFF);

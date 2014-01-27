@@ -521,10 +521,6 @@ void ParticleSystemProxy::simulate()
 
 void ParticleSystemProxy::drawFlip()
 {
-	glDepthMask(GL_FALSE);
-	glDisable(GL_CULL_FACE);
-	glEnable(GL_BLEND);
-
 	glBlendEquation(GL_FUNC_ADD);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 	glUseProgram(ParticleShader::FlipParticleRender::Program);
@@ -541,19 +537,10 @@ void ParticleSystemProxy::drawFlip()
 
 	glBindVertexArray(current_rendering_flip_vao);
 	glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, count);
-
-	glBindVertexArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glActiveTexture(GL_TEXTURE0);
-	glDisable(GL_BLEND);
 }
 
 void ParticleSystemProxy::drawNotFlip()
 {
-	glDepthMask(GL_FALSE);
-	glDisable(GL_CULL_FACE);
-	glEnable(GL_BLEND);
-
 	if (m_alpha_additive)
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 	else
@@ -572,11 +559,6 @@ void ParticleSystemProxy::drawNotFlip()
 
 	glBindVertexArray(current_rendering_vao);
 	glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, count);
-
-	glBindVertexArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glActiveTexture(GL_TEXTURE0);
-	glDisable(GL_BLEND);
 }
 
 void ParticleSystemProxy::draw()
