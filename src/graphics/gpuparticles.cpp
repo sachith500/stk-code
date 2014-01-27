@@ -65,13 +65,7 @@ ParticleSystemProxy::ParticleSystemProxy(bool createDefaultEmitter,
 	const core::vector3df& position,
 	const core::vector3df& rotation,
 	const core::vector3df& scale) : CParticleSystemSceneNode(createDefaultEmitter, parent, mgr, id, position, rotation, scale), m_alpha_additive(false) {
-	fakemat.Lighting = false;
-	fakemat.ZWriteEnable = false;
-	fakemat.MaterialType = irr_driver->getShader(ES_RAIN);
-	fakemat.setTexture(0, getMaterial(0).getTexture(0));
-	fakemat.BlendOperation = video::EBO_NONE;
-	fakemat.FrontfaceCulling = false;
-	fakemat.BackfaceCulling = false;
+
 	glGenBuffers(1, &initial_values_buffer);
 	glGenBuffers(2, tfb_buffers);
 	glGenBuffers(1, &quaternionsbuffer);
@@ -415,8 +409,7 @@ void ParticleSystemProxy::setEmitter(scene::IParticleEmitter* emitter)
 		return;
 	has_height_map = false;
 	flip = false;
-	// Pass a fake material type to force irrlicht to update its internal states on rendering
-	setMaterialType(irr_driver->getShader(ES_RAIN));
+
 	setAutomaticCulling(0);
 
 	count = emitter->getMaxParticlesPerSecond() * emitter->getMaxLifeTime() / 1000;
@@ -553,7 +546,6 @@ void ParticleSystemProxy::drawFlip()
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glActiveTexture(GL_TEXTURE0);
 	glDisable(GL_BLEND);
-
 }
 
 void ParticleSystemProxy::drawNotFlip()
@@ -585,7 +577,6 @@ void ParticleSystemProxy::drawNotFlip()
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glActiveTexture(GL_TEXTURE0);
 	glDisable(GL_BLEND);
-
 }
 
 void ParticleSystemProxy::draw()
@@ -600,14 +591,9 @@ void ParticleSystemProxy::render() {
 	if (!getEmitter() || !isGPUParticleType(getEmitter()->getType()))
 	{
 		CParticleSystemSceneNode::render();
-		return;
 	}
 	simulate();
 	draw();
-	// We need to force irrlicht to update its internal states
-	irr::video::IVideoDriver * const drv = irr_driver->getVideoDriver();
-	drv->setMaterial(fakemat);
-	static_cast<irr::video::COpenGLDriver*>(drv)->setRenderStates3DMode();
 }
 
 RainNode::RainNode(scene::ISceneManager* mgr, ITexture *tex)

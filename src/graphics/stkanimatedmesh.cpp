@@ -26,20 +26,10 @@ void STKAnimatedMesh::setMesh(scene::IAnimatedMesh* mesh)
 
 void STKAnimatedMesh::drawTransparent(const GLMesh &mesh, video::E_MATERIAL_TYPE type)
 {
-	glEnable(GL_DEPTH_TEST);
-	glDisable(GL_ALPHA_TEST);
-	glDepthMask(GL_FALSE);
-	glEnable(GL_BLEND);
-	glBlendEquation(GL_FUNC_ADD);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glDisable(GL_CULL_FACE);
-
+	assert(irr_driver->getPhase() == TRANSPARENT_PASS);
 	computeMVP(ModelViewProjectionMatrix);
 
 	drawTransparentObject(mesh, ModelViewProjectionMatrix);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
 	return;
 }
 
@@ -50,11 +40,6 @@ void STKAnimatedMesh::drawSolid(const GLMesh &mesh, video::E_MATERIAL_TYPE type)
 	case SOLID_NORMAL_AND_DEPTH_PASS:
 	{
 			  irr_driver->getVideoDriver()->setRenderTarget(irr_driver->getRTT(RTT_NORMAL_AND_DEPTH), false, false);
-
-			  glEnable(GL_DEPTH_TEST);
-			  glDisable(GL_ALPHA_TEST);
-			  glDepthMask(GL_TRUE);
-			  glDisable(GL_BLEND);
 
 			  computeMVP(ModelViewProjectionMatrix);
 			  computeTIMV(TransposeInverseModelView);
@@ -69,11 +54,6 @@ void STKAnimatedMesh::drawSolid(const GLMesh &mesh, video::E_MATERIAL_TYPE type)
 	case SOLID_LIT_PASS:
 	{
 			  irr_driver->getVideoDriver()->setRenderTarget(irr_driver->getRTT(RTT_COLOR), false, false);
-
-			  glEnable(GL_DEPTH_TEST);
-			  glDisable(GL_ALPHA_TEST);
-			  glDepthMask(GL_FALSE);
-			  glDisable(GL_BLEND);
 
 			  if (type == irr_driver->getShader(ES_OBJECTPASS_REF))
 				  drawObjectRefPass2(mesh, ModelViewProjectionMatrix);
@@ -92,7 +72,6 @@ void STKAnimatedMesh::drawSolid(const GLMesh &mesh, video::E_MATERIAL_TYPE type)
 			   assert(0 && "wrong pass");
 	}
 	}
-	glBindVertexArray(0);
 }
 
 static bool

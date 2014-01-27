@@ -686,23 +686,12 @@ void STKMesh::drawDisplace(const GLMesh &mesh)
 void STKMesh::drawTransparent(const GLMesh &mesh, video::E_MATERIAL_TYPE type)
 {
 	assert(irr_driver->getPhase() == TRANSPARENT_PASS);
-	glEnable(GL_DEPTH_TEST);
-	glDisable(GL_ALPHA_TEST);
-	glDepthMask(GL_FALSE);
-	glEnable(GL_BLEND);
-	glBlendEquation(GL_FUNC_ADD);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glDisable(GL_CULL_FACE);
-
 	computeMVP(ModelViewProjectionMatrix);
 		
 	if (type == irr_driver->getShader(ES_BUBBLES))
 		drawBubble(mesh, ModelViewProjectionMatrix);
 	else
 		drawTransparentObject(mesh, ModelViewProjectionMatrix);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
 	return;
 }
 
@@ -758,7 +747,6 @@ void STKMesh::drawSolid(const GLMesh &mesh, video::E_MATERIAL_TYPE type)
 		assert(0 && "wrong pass");
 	}
 	}
-	glBindVertexArray(0);
 }
 
 static bool isObject(video::E_MATERIAL_TYPE type)

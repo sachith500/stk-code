@@ -40,10 +40,6 @@ STKBillboard::STKBillboard(irr::scene::ISceneNode* parent, irr::scene::ISceneMan
 
 void STKBillboard::render()
 {
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glBlendEquation(GL_FUNC_ADD);
-	glDepthFunc(GL_FALSE);
 	core::vector3df pos = getAbsolutePosition();
 	glBindVertexArray(billboardvao);
 	GLuint texid = static_cast<irr::video::COpenGLTexture*>(Material.getTexture(0))->getOpenGLTextureName();
@@ -51,6 +47,5 @@ void STKBillboard::render()
 	glUseProgram(MeshShader::BillboardShader::Program);
 	MeshShader::BillboardShader::setUniforms(irr_driver->getViewMatrix(), irr_driver->getProjMatrix(), pos, Size, 0);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-	glBindVertexArray(0);
 	return;
 }
