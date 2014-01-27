@@ -596,6 +596,17 @@ void ParticleSystemProxy::render() {
 	draw();
 }
 
+void ParticleSystemProxy::OnRegisterSceneNode()
+{
+	doParticleSystem(os::Timer::getTime());
+
+	if (IsVisible && (Particles.size() != 0))
+	{
+		SceneManager->registerNodeForRendering(this, scene::ESNRP_TRANSPARENT_EFFECT);
+		ISceneNode::OnRegisterSceneNode();
+	}
+}
+
 RainNode::RainNode(scene::ISceneManager* mgr, ITexture *tex)
     : GPUParticle(0, mgr, tex)
 {
