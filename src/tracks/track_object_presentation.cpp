@@ -36,6 +36,7 @@
 #include "states_screens/dialogs/tutorial_message_dialog.hpp"
 #include "tracks/lod_node_loader.hpp"
 #include "tracks/track.hpp"
+#include "tracks/track_object_manager.hpp"
 
 #include <ISceneManager.h>
 #include <IMeshSceneNode.h>
@@ -714,6 +715,14 @@ void TrackObjectPresentationActionTrigger::onTriggerItemApproached(Item* who)
 
         new TutorialMessageDialog(_("Avoid bananas!"), true);
     }
+    else if (m_action == "haybail")
+    {
+        m_action_active = false;
+        World::getWorld()->getTrack()->getTrackObjectManager()->disable("hayBail.b3d");
+		OutputDebugString("activated_");
+        //new TutorialMessageDialog(_("Avoid bananas!"), true);
+    }
+    
     else if (m_action == "tutorial_giftboxes")
     {
         m_action_active = false;

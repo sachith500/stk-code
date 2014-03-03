@@ -18,6 +18,7 @@
 
 #include "tracks/track_object_manager.hpp"
 
+#include <iostream>
 #include "animations/ipo.hpp"
 #include "animations/three_d_animation.hpp"
 #include "graphics/lod_node.hpp"
@@ -85,6 +86,20 @@ void TrackObjectManager::reset()
     }
 }   // reset
 
+void TrackObjectManager::disable(std::string name){
+     TrackObject* curr;
+	 OutputDebugString("came here");
+	 
+     for_in (curr,m_all_objects){
+            if (curr->m_name == name||curr->m_name=="haybail.b3d"){
+            OutputDebugString("came here2");
+             curr->setEnable(false);
+            
+            }
+            }
+     
+     
+     }
 // ----------------------------------------------------------------------------
 /** Handles an explosion, i.e. it makes sure that all physical objects are
  *  affected accordingly.

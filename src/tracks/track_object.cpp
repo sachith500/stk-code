@@ -91,7 +91,14 @@ void TrackObject::init(const XMLNode &xml_node, scene::ISceneNode* parent,
 
     m_physical_object = NULL;
 
-    xml_node.get("xyz",     &m_init_xyz  );
+    xml_node.get("model", &m_name);
+	OutputDebugString("model gotten = ");
+	char print[100];
+	for (int i=0;i<m_name.size();i++)print[i] = m_name[i];
+	print[m_name.size()] = '\0';
+	OutputDebugString(print);
+	Log::warn("track_obj",print);
+	xml_node.get("xyz",     &m_init_xyz  );
     xml_node.get("hpr",     &m_init_hpr  );
     xml_node.get("scale",   &m_init_scale);
     xml_node.get("enabled", &m_enabled   );
@@ -251,7 +258,9 @@ void TrackObject::reset()
  */
 void TrackObject::setEnable(bool mode)
 {
-    m_enabled = mode;
+     
+    OutputDebugString("mode");
+	m_enabled = mode;
     if (m_presentation != NULL) m_presentation->setEnable(m_enabled);
 }   // setEnable
 

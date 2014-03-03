@@ -85,7 +85,7 @@ protected:
     void init(const XMLNode &xml_node, scene::ISceneNode* parent, LodNodeLoader& lod_loader);
 
 public:
-                 TrackObject(const XMLNode &xml_node, scene::ISceneNode* parent, LodNodeLoader& lod_loader);
+     std::string                    m_name;                TrackObject(const XMLNode &xml_node, scene::ISceneNode* parent, LodNodeLoader& lod_loader);
 
                  TrackObject(const core::vector3df& xyz,
                              const core::vector3df& hpr,
