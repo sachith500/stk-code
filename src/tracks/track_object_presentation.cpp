@@ -37,7 +37,7 @@
 #include "tracks/lod_node_loader.hpp"
 #include "tracks/track.hpp"
 #include "tracks/track_object_manager.hpp"
-
+//#include "../../bld/script_engine.hpp"
 #include <ISceneManager.h>
 #include <IMeshSceneNode.h>
 #include <ICameraSceneNode.h>
