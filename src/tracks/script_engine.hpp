@@ -19,12 +19,7 @@
 #ifndef HEADER_SCRIPT_ENGINE_HPP
 #define HEADER_SCRIPT_ENGINE_HPP
 
-
-namespace irr
-{
-    namespace video { struct S3DVertex; }
-}
-using namespace irr;
+#include<string>
 
 class TrackObjectPresentation;
 /**
@@ -35,9 +30,14 @@ class ScriptEngine
 
 
 public:
+	std::string out;
          ScriptEngine();
-		 ~ScriptEngine();
+		// ~ScriptEngine();
     void displayMessage();
+
+	int five(){
+		return 5;
+	}
 
 };   // class ScriptEngine
 #endif

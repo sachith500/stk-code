@@ -37,7 +37,7 @@
 #include "tracks/lod_node_loader.hpp"
 #include "tracks/track.hpp"
 #include "tracks/track_object_manager.hpp"
-//#include "../../bld/script_engine.hpp"
+#include "tracks/script_engine.hpp"
 #include <ISceneManager.h>
 #include <IMeshSceneNode.h>
 #include <ICameraSceneNode.h>
@@ -698,7 +698,6 @@ void TrackObjectPresentationActionTrigger::onTriggerItemApproached(Item* who)
         {
             m_action_active = false;
             //World::getWorld()->getRaceGUI()->clearAllMessages();
-
             InputDevice* device = input_manager->getDeviceList()->getLatestUsedDevice();
             DeviceConfig* config = device->getConfiguration();
             irr::core::stringw accel = config->getBindingAsString(PA_ACCEL);
@@ -717,10 +716,21 @@ void TrackObjectPresentationActionTrigger::onTriggerItemApproached(Item* who)
     }
     else if (m_action == "haybail")
     {
+		ScriptEngine* scripter = new ScriptEngine();
         m_action_active = false;
         World::getWorld()->getTrack()->getTrackObjectManager()->disable("hayBail.b3d");
 		OutputDebugString("activated_");
-        //new TutorialMessageDialog(_("Avoid bananas!"), true);
+		if (scripter->out=="wow")
+        new TutorialMessageDialog(_("Wow! Such Message! Very Script... wow"), true);
+		else {
+			new TutorialMessageDialog(_("Avoid bananas!"), true);
+			char print[100];
+			for (int i=0;i<scripter->out.size();i++)print[i] = scripter->out[i];
+			print[scripter->out.size()] = '\0';
+			OutputDebugString(print);
+			Log::warn("weh",print);
+			if (scripter->five()!=5)Log::warn("sumting","very wrong");
+		}
     }
     
     else if (m_action == "tutorial_giftboxes")
