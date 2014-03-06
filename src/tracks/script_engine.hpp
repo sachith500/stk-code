@@ -27,10 +27,8 @@ class TrackObjectPresentation;
   */
 class ScriptEngine
 {
-
-
 public:
-	std::string out;
+
          ScriptEngine();
 		// ~ScriptEngine();
     void displayMessage();
@@ -38,6 +36,12 @@ public:
 	int five(){
 		return 5;
 	}
+	std::string doit();
+	std::string getout(){
+		return outval;
+	}
 
+private:
+	std::string outval;
 };   // class ScriptEngine
 #endif

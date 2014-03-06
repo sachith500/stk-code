@@ -716,20 +716,23 @@ void TrackObjectPresentationActionTrigger::onTriggerItemApproached(Item* who)
     }
     else if (m_action == "haybail")
     {
-		ScriptEngine* scripter = new ScriptEngine();
+		ScriptEngine scripter = ScriptEngine::ScriptEngine();
         m_action_active = false;
         World::getWorld()->getTrack()->getTrackObjectManager()->disable("hayBail.b3d");
 		OutputDebugString("activated_");
-		if (scripter->out=="wow")
+		std::string output= scripter.doit();
+		if (output=="wow")
         new TutorialMessageDialog(_("Wow! Such Message! Very Script... wow"), true);
 		else {
 			new TutorialMessageDialog(_("Avoid bananas!"), true);
 			char print[100];
-			for (int i=0;i<scripter->out.size();i++)print[i] = scripter->out[i];
-			print[scripter->out.size()] = '\0';
+			//std::string scriptout = scripter.getout();
+			std::string scriptout = output;
+			for (int i=0;i<output.size();i++)print[i] = output[i];
+			print[output.size()] = '\0';
 			OutputDebugString(print);
 			Log::warn("weh",print);
-			if (scripter->five()!=5)Log::warn("sumting","very wrong");
+			if (scripter.five()==5)Log::warn("sumting","very good");
 		}
     }
     
