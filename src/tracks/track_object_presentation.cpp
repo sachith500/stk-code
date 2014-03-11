@@ -17,7 +17,8 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "tracks/track_object_presentation.hpp"
-
+#include <iostream>
+#include <time.h>
 #include "audio/sfx_base.hpp"
 #include "audio/sfx_buffer.hpp"
 #include "challenges/unlock_manager.hpp"
@@ -38,6 +39,7 @@
 #include "tracks/track.hpp"
 #include "tracks/track_object_manager.hpp"
 #include "tracks/script_engine.hpp"
+#include "tracks/script_engine_one.hpp"
 #include <ISceneManager.h>
 #include <IMeshSceneNode.h>
 #include <ICameraSceneNode.h>
@@ -716,19 +718,46 @@ void TrackObjectPresentationActionTrigger::onTriggerItemApproached(Item* who)
     }
     else if (m_action == "haybail")
     {
+		std::string outputval;
 		ScriptEngine scripter = ScriptEngine::ScriptEngine();
+		//ScriptEngineOne scripter = ScriptEngineOne::ScriptEngineOne();
         m_action_active = false;
-        World::getWorld()->getTrack()->getTrackObjectManager()->disable("hayBail.b3d");
+		World::getWorld()->getTrack()->getTrackObjectManager()->disable("hayBail.b3d");
 		OutputDebugString("activated_");
-		std::string output= scripter.doit();
-		if (output=="wow")
+		time_t now;
+		time(&now);
+		time_t end;
+		const long double sysTime = time(0);
+		clock_t t1,t2;
+		t1=clock();
+		//code goes here
+		for (int i=0;i<20;i++){
+		outputval= scripter.doit();
+				t2=clock();
+		float diff ((double)t2-(double)t1);
+		std::cout<<diff<<std::endl;
+		std::cout << "System Time in milliseconds is " << 1000*diff/CLOCKS_PER_SEC<<std::endl;
+		}
+		std::string output = outputval;
+		time(&end);
+		long double millis = difftime(now,end);
+		std::cout<<"System Time in milliseconds difference is" << millis;
+		long double sysTimeMS = time(0);
+		t2=clock();
+		float diff ((double)t2-(double)t1);
+		//cout<<diff<<endl;
+		std::cout << "System Time in milliseconds is " << 1000*diff/CLOCKS_PER_SEC;
+		//outputval = "wow";
+		if (outputval=="hwaaatt"){
+		std::cout<<"";
         new TutorialMessageDialog(_("Wow! Such Message! Very Script... wow"), true);
+		}
 		else {
 			new TutorialMessageDialog(_("Avoid bananas!"), true);
 			char print[100];
-			//std::string scriptout = scripter.getout();
-			std::string scriptout = output;
-			for (int i=0;i<output.size();i++)print[i] = output[i];
+			std::string scriptout = scripter.getout();
+			scriptout = outputval;
+			for (int i=0;i<output.size();i++)print[i] = scriptout[i];
 			print[output.size()] = '\0';
 			OutputDebugString(print);
 			Log::warn("weh",print);

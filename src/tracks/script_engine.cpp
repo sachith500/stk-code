@@ -29,8 +29,10 @@
                 va_end(arglist); 
         } 
 
-		std::string call_foo11(HSQUIRRELVM v, int n,float f,const SQChar *s)
+		const SQChar* call_foo11(HSQUIRRELVM v, int n,float f,const SQChar *s)
+		//std::string call_foo11(HSQUIRRELVM v, int n,float f,const SQChar *s)
         {
+			/*
 				const SQChar*  out = NULL;
 				std::string output;
                 int top = sq_gettop(v); //saves the stack size before the call
@@ -47,7 +49,23 @@
 						
                 }
                 sq_settop(v,top); //restores the original stack size
-				return out;
+				return out; */
+				const SQChar* outvalue;
+
+				const SQChar *program = "return\"hwaaatt\"";
+ 
+				if (SQ_FAILED(sq_compilebuffer(v, program, 
+                                   sizeof(SQChar) * strlen(program), 
+                                   "program", SQTrue))) {
+				return NULL;
+				}
+				sq_pushroottable(v); //push the root table(were the globals of the script will be stored)
+				if (SQ_FAILED(sq_call(v, 1, SQTrue, SQTrue))) {
+
+				return NULL;
+				}
+				sq_getstring(v,-1,&outvalue);
+				return outvalue;
         }
 		std::string call_foo(HSQUIRRELVM v, int n,float f,const SQChar *s)
         {
@@ -158,7 +176,9 @@
                 //return 0; 
 */
 		}
-
+		std::string convert(const SQChar* in){
+			return (std::string)in;
+		}
 		std::string ScriptEngine::doit(){
 			                
                // return 0; 
@@ -174,35 +194,55 @@
 				//std::string out;
 				const SQChar* out;
 
+
                 sq_pushroottable(v); //push the root table(were the globals of the script will be stored)
-				sq_pushstring(v,_SC("foo"),-1);
-                if(SQ_FAILED(sqstd_dofile(v, _SC("test.nut"), 0, 1))) // also prints syntax errors if any 
-                {
+				//sq_pushstring(v,_SC("foo"),-1);
+               // if(SQ_FAILED(sqstd_dofile(v, _SC("test.nut"), 0, 1))) // also prints syntax errors if any 
+               // {
 						//  call_foo(v);+
 						//  call_foo(v,1,2.5,_SC("teststring"));
-                        out = call_foo111(v,5,2.5,_SC("teststring"));
+                        out = call_foo11(v,5,2.5,_SC("teststring"));
 						//if (out=="wow")call_foo111(v,1,1.1,("weh"));
-                }
-				
-				sq_pushstring(v,_SC("wow"),-1);
-				sq_getstring(v,-1,&out);
-				std::string great = "wow123";
-				const SQChar* wow= "wow";
-				if (out == wow)great = "wow";
+              //  }
+
+				/*
+				To call a squirrel function it is necessary to push the function in the stack followed by the parameters and then call the function sq_call. The function will pop the parameters and push the return value if the last sq_call parameter is >0.
+
+				sq_pushroottable(v);
+				sq_pushstring(v,“foo”,-1);
+				sq_get(v,-2); //get the function from the root table
+				sq_pushroottable(v); //’this’ (function environment object)
+				sq_pushinteger(v,1);
+				sq_pushfloat(v,2.0);
+				sq_pushstring(v,”three”,-1);
+				sq_call(v,4,SQFalse);
+				sq_pop(v,2); //pops the roottable and the function
+		
+				this is equivalent to the following Squirrel code
+
+				foo(1,2.0,”three”);
+				If a runtime error occurs (or a exception is thrown) during the squirrel code execution the sq_call will fail.
+				*/
+				//sq_pushstring(v,_SC("wow"),-1);
+				//sq_getstring(v,-1,&out);
+				//std::string great = "wow123";
+				//if (convert(out) == "wow")great = "wow";
                 sq_pop(v,1); //pops the root table
-                //sq_close(v); 
-				char a;
+                sq_close(v); 
+				//char a;
 				//std::cin>>a;
 				//std::cout<<a;
 				//OutputDebugString("a");
-				va_list arglist;
+				/*va_list arglist;
 				std::cout<<"woot";
 				va_start(arglist, "wat"); 
 				scvprintf("wat",arglist); 
 				va_end(arglist); 
-				return great;
+				*/
+				return convert(out);
 
 		}
+
 
     /*    int main(int argc, char* argv[]) 
         { 

@@ -1,10 +1,4 @@
-        function foo(i, f, s) 
-        { 
-			return "wow";
-        } 
-
-		/*
-		#include <iostream>  // cout
+#include <iostream>  // cout
 #include <assert.h>  // assert()
 #include <string.h>  // strstr()
 #ifdef _LINUX_
@@ -107,7 +101,7 @@ int RunApplication()
 	}
 
 	// The script compiler will write any compiler messages to the callback.
-	engine->SetMessageCallback(asFUNCTION(MessageCallback), 0, asCALL_CDECL);
+	//engine->SetMessageCallback(asFUNCTION(MessageCallback), 0, asCALL_CDECL);
 
 	// Configure the script engine with all the functions, 
 	// and variables that the script should be able to use.
@@ -259,7 +253,7 @@ int CompileScript(asIScriptEngine *engine)
 	int r;
 
 	// We will load the script from a file on the disk.
-/*	FILE *f = fopen("script.as", "rb");
+	FILE *f = fopen("script.as", "rb");
 	if( f == 0 )
 	{
 		std::cout << "Failed to open the script file 'script.as'." << std::endl;
@@ -269,7 +263,7 @@ int CompileScript(asIScriptEngine *engine)
 	// Determine the size of the file	
 	fseek(f, 0, SEEK_END);
 	int len = ftell(f);
-	fseek(f, 0, SEEK_SET);*/
+	fseek(f, 0, SEEK_SET);
 
 	// On Win32 it is possible to do the following instead
 	// int len = _filelength(_fileno(f));
@@ -285,7 +279,7 @@ int CompileScript(asIScriptEngine *engine)
 		std::cout << "Failed to load script file." << std::endl;
 		return -1;
 	}*/
-	script = "float calc(float a, float b){ return 23;}";
+	script = "float calc(float a, float b){ return 23;}//asfafagadbsgsgsbfdxhbdhdhdfhdfbdfbdbfg";
 	int len = script.size();
 	// Add the script sections that will be compiled into executable code.
 	// If we want to combine more than one file into the same script, then 
@@ -354,4 +348,3 @@ void timeGetTime_Generic(asIScriptGeneric *gen)
 {
 	gen->SetReturnDWord(timeGetTime());
 }
-*/

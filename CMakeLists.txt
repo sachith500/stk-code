@@ -251,6 +251,10 @@ if(APPLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I/Library/Frameworks/OpenAL.framework/Versions/A/Headers")
 endif()
 
+target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/squirrel.lib)
+target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/sqstdlib.lib)
+
+
 if(USE_FRIBIDI)
     target_link_libraries(supertuxkart ${FRIBIDI_LIBRARIES})
     add_definitions(-DENABLE_BIDI)
