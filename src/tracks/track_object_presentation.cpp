@@ -719,8 +719,8 @@ void TrackObjectPresentationActionTrigger::onTriggerItemApproached(Item* who)
     else if (m_action == "haybail")
     {
 		std::string outputval;
-		ScriptEngine scripter = ScriptEngine::ScriptEngine();
-		//ScriptEngineOne scripter = ScriptEngineOne::ScriptEngineOne();
+		//ScriptEngine scripter = ScriptEngine::ScriptEngine();
+		ScriptEngineOne scripter = ScriptEngineOne::ScriptEngineOne();
         m_action_active = false;
 		World::getWorld()->getTrack()->getTrackObjectManager()->disable("hayBail.b3d");
 		OutputDebugString("activated_");
@@ -731,20 +731,20 @@ void TrackObjectPresentationActionTrigger::onTriggerItemApproached(Item* who)
 		clock_t t1,t2;
 		t1=clock();
 		//code goes here
-		for (int i=0;i<20;i++){
-		outputval= scripter.doit();
+		//for (int i=0;i<20;i++){
+		outputval= scripter.doit(m_action);
 				t2=clock();
 		float diff ((double)t2-(double)t1);
-		std::cout<<diff<<std::endl;
+		//std::cout<<diff<<std::endl;
 		std::cout << "System Time in milliseconds is " << 1000*diff/CLOCKS_PER_SEC<<std::endl;
-		}
+		//}
 		std::string output = outputval;
 		time(&end);
 		long double millis = difftime(now,end);
 		std::cout<<"System Time in milliseconds difference is" << millis;
 		long double sysTimeMS = time(0);
 		t2=clock();
-		float diff ((double)t2-(double)t1);
+		diff = ((double)t2-(double)t1);
 		//cout<<diff<<endl;
 		std::cout << "System Time in milliseconds is " << 1000*diff/CLOCKS_PER_SEC;
 		//outputval = "wow";

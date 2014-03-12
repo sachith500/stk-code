@@ -91,7 +91,8 @@ void TrackObjectManager::disable(std::string name){
 	 OutputDebugString("came here");
 	 
      for_in (curr,m_all_objects){
-            if (curr->m_name == name||curr->m_name=="haybail.b3d"){
+		 std::cout<<name<<std::endl;
+            if (curr->m_name == (name)){
             //OutputDebugString("came here2");
              curr->setEnable(false);
             

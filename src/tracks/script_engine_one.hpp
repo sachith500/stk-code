@@ -36,7 +36,7 @@ public:
 	int five(){
 		return 5;
 	}
-	std::string doit();
+	std::string doit(std::string scriptName);
 	std::string getout(){
 		return outval;
 	}

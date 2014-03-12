@@ -54,7 +54,7 @@ int getch()
 #endif
 
 // Function prototypes
-int  RunApplication();
+int  RunApplication(std::string);
 void ConfigureEngine(asIScriptEngine *engine);
 int  CompileScript(asIScriptEngine *engine);
 void PrintString(std::string &str);
@@ -65,9 +65,9 @@ void LineCallback(asIScriptContext *ctx, DWORD *timeOut);
 ScriptEngineOne::ScriptEngineOne(){
 }
 
-std::string ScriptEngineOne::doit()
+std::string ScriptEngineOne::doit(std::string scriptName)
 {
-	RunApplication();
+	RunApplication(scriptName);
 
 	// Wait until the user presses a key
 	//std::cout << std::endl << "Press any key to quit." << std::endl;
@@ -88,10 +88,10 @@ void MessageCallback(const asSMessageInfo *msg, void *param)
 }
 
 
-int RunApplication()
+int RunApplication(std::string scriptName)
 {
 	int r;
-
+	std::cout<<scriptName;
 	// Create the script engine
 	asIScriptEngine *engine = asCreateScriptEngine(ANGELSCRIPT_VERSION);
 	if( engine == 0 )
@@ -253,7 +253,7 @@ int CompileScript(asIScriptEngine *engine)
 	int r;
 
 	// We will load the script from a file on the disk.
-	FILE *f = fopen("script.as", "rb");
+	FILE *f = fopen("D:\\Uni Torrents\\angelscript_2.28.1\\sdk\\samples\\tutorial\\bin\\script.as", "rb");
 	if( f == 0 )
 	{
 		std::cout << "Failed to open the script file 'script.as'." << std::endl;
@@ -280,7 +280,7 @@ int CompileScript(asIScriptEngine *engine)
 		return -1;
 	}*/
 	script = "float calc(float a, float b){ return 23;}//asfafagadbsgsgsbfdxhbdhdhdfhdfbdfbdbfg";
-	int len = script.size();
+	len = script.size();
 	// Add the script sections that will be compiled into executable code.
 	// If we want to combine more than one file into the same script, then 
 	// we can call AddScriptSection() several times for the same module and
