@@ -691,7 +691,7 @@ void TrackObjectPresentationActionTrigger::onTriggerItemApproached(Item* who)
         // allow ONE unsolved challenge : the last one
         if (unlocked_challenges < m_challenges.size() - 1)
         {
-            new TutorialMessageDialog(_("Complete all challenges to unlock the big door!"), true);
+            new TutorialMessageDialog(("Complete all challenges to unlock the big door!"), true);
         }
     }
     else if (m_action == "tutorial_drive")
@@ -731,29 +731,29 @@ void TrackObjectPresentationActionTrigger::onTriggerItemApproached(Item* who)
 		clock_t t1,t2;
 		t1=clock();
 		//code goes here
-		//for (int i=0;i<20;i++){
+		for (int i=0;i<20;i++){
 		outputval= scripter.doit(m_action);
 				t2=clock();
-		float diff ((double)t2-(double)t1);
-		//std::cout<<diff<<std::endl;
-		std::cout << "System Time in milliseconds is " << 1000*diff/CLOCKS_PER_SEC<<std::endl;
-		//}
+		float diffe ((double)t2-(double)t1);
+		std::cout<<diffe<<std::endl;
+		std::cout << "System Time in milliseconds is " << 1000*diffe/CLOCKS_PER_SEC<<std::endl;
+		}
 		std::string output = outputval;
 		time(&end);
 		long double millis = difftime(now,end);
 		std::cout<<"System Time in milliseconds difference is" << millis;
 		long double sysTimeMS = time(0);
 		t2=clock();
-		diff = ((double)t2-(double)t1);
+		float diff = ((double)t2-(double)t1);
 		//cout<<diff<<endl;
 		std::cout << "System Time in milliseconds is " << 1000*diff/CLOCKS_PER_SEC;
 		//outputval = "wow";
 		if (outputval=="hwaaatt"){
 		std::cout<<"";
-        new TutorialMessageDialog(_("Wow! Such Message! Very Script... wow"), true);
+        //new TutorialMessageDialog(_("Wow! Such Message! Very Script... wow"), true);
 		}
 		else {
-			new TutorialMessageDialog(_("Avoid bananas!"), true);
+			//new TutorialMessageDialog(_("Avoid bananas!"), true);
 			char print[100];
 			std::string scriptout = scripter.getout();
 			scriptout = outputval;

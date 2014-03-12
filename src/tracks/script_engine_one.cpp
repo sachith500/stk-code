@@ -1,6 +1,7 @@
 #include <iostream>  // cout
 #include <assert.h>  // assert()
 #include <string.h>  // strstr()
+#include "states_screens/dialogs/tutorial_message_dialog.hpp"
 #ifdef _LINUX_
 	#include <sys/time.h>
 	#include <stdio.h>
@@ -11,11 +12,11 @@
 	#include <windows.h> // timeGetTime()
 #endif
 #include <angelscript.h>
-#include <scriptstdstring.h>
+//#include <scriptstdstring.h>
 #include "script_engine_one.hpp"
 
 //using namespace std;
-#define AS_USE_NAMESPACE
+//#define AS_USE_NAMESPACE
 
 #ifdef _LINUX_
 
@@ -61,12 +62,22 @@ void PrintString(std::string &str);
 void PrintString_Generic(asIScriptGeneric *gen);
 void timeGetTime_Generic(asIScriptGeneric *gen);
 void LineCallback(asIScriptContext *ctx, DWORD *timeOut);
+void displaymsg();
 
 ScriptEngineOne::ScriptEngineOne(){
 }
 
+void displaymsg(){
+	new TutorialMessageDialog(("Woot Scripting working"), true);
+	//std::cout<<"Woot"<<std::endl;
+}
+// Function wrapper is needed when native calling conventions are not supported
+void dispmsg(asIScriptGeneric *gen){
+	displaymsg();
+}
 std::string ScriptEngineOne::doit(std::string scriptName)
 {
+	//displaymsg();
 	RunApplication(scriptName);
 
 	// Wait until the user presses a key
@@ -75,7 +86,6 @@ std::string ScriptEngineOne::doit(std::string scriptName)
 
 	return "wot";
 }
-
 void MessageCallback(const asSMessageInfo *msg, void *param)
 {
 	const char *type = "ERR ";
@@ -235,10 +245,10 @@ void ConfigureEngine(asIScriptEngine *engine)
 	else
 	{
 		// Notice how the registration is almost identical to the above. 
-		r = engine->RegisterGlobalFunction("void Print(string &in)", asFUNCTION(PrintString_Generic), asCALL_GENERIC); assert( r >= 0 );
+		//r = engine->RegisterGlobalFunction("void Print(string &in)", asFUNCTION(PrintString_Generic), asCALL_GENERIC); assert( r >= 0 );
 		r = engine->RegisterGlobalFunction("uint GetSystemTime()", asFUNCTION(timeGetTime_Generic), asCALL_GENERIC); assert( r >= 0 );
 	}
-
+	r = engine->RegisterGlobalFunction("void displaymsg()", asFUNCTION(dispmsg), asCALL_GENERIC); assert(r>=0);
 
 	// It is possible to register the functions, properties, and types in 
 	// configuration groups as well. When compiling the scripts it then
@@ -270,17 +280,18 @@ int CompileScript(asIScriptEngine *engine)
 
 	// Read the entire file
 	std::string script;
-//	script.resize(len);
-//	int c =	fread(&script[0], len, 1, f);
-//	fclose(f);
-	/*
+	script.resize(len);
+	int c =	fread(&script[0], len, 1, f);
+	fclose(f);
+	
 	if( c == 0 ) 
 	{
 		std::cout << "Failed to load script file." << std::endl;
 		return -1;
-	}*/
-	script = "float calc(float a, float b){ return 23;}//asfafagadbsgsgsbfdxhbdhdhdfhdfbdfbdbfg";
-	len = script.size();
+	}
+	//std::cout<<script<<std::endl;
+	//script = "float calc(float a, float b){ return 23;}//asfafagadbsgsgsbfdxhbdhdhdfhdfbdfbdbfg";
+	//len = script.size();
 	// Add the script sections that will be compiled into executable code.
 	// If we want to combine more than one file into the same script, then 
 	// we can call AddScriptSection() several times for the same module and
