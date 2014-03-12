@@ -253,6 +253,7 @@ endif()
 
 target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/squirrel.lib)
 target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/sqstdlib.lib)
+target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/angelscriptd.lib)
 
 
 if(USE_FRIBIDI)
