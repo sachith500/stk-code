@@ -305,6 +305,7 @@ src/tracks/quad.cpp
 src/tracks/quad_graph.cpp
 src/tracks/quad_set.cpp
 src/tracks/script_engine.cpp
+src/tracks/script_engine_one.cpp
 src/tracks/terrain_info.cpp
 src/tracks/track.cpp
 src/tracks/track_manager.cpp
@@ -644,6 +645,7 @@ src/tracks/quad.hpp
 src/tracks/quad_graph.hpp
 src/tracks/quad_set.hpp
 src/tracks/script_engine.hpp
+src/tracks/script_engine_one.hpp
 src/tracks/terrain_info.hpp
 src/tracks/track.hpp
 src/tracks/track_manager.hpp
