@@ -719,8 +719,9 @@ void TrackObjectPresentationActionTrigger::onTriggerItemApproached(Item* who)
     else if (m_action == "haybail")
     {
 		std::string outputval;
-		ScriptEngine* scripter = new ScriptEngine();
+		//ScriptEngine* scripter = new ScriptEngine();
 		//ScriptEngineOne scripter = ScriptEngineOne::ScriptEngineOne();
+		ScriptEngineOne* scripter = new ScriptEngineOne();
         m_action_active = false;
 		World::getWorld()->getTrack()->getTrackObjectManager()->disable("hayBail.b3d");
 		//OutputDebugString("activated_");
@@ -733,7 +734,8 @@ void TrackObjectPresentationActionTrigger::onTriggerItemApproached(Item* who)
 		//code goes here
 		for (int i=0;i<20;i++){
 		//outputval= scripter.doit(m_action);
-		outputval= scripter->doit();
+		outputval= scripter->doit(m_action);
+		//outputval= scripter->doit();
 				t2=clock();
 		float diffe ((double)t2-(double)t1);
 		std::cout<<diffe<<std::endl;
@@ -765,7 +767,6 @@ void TrackObjectPresentationActionTrigger::onTriggerItemApproached(Item* who)
 			if (scripter->five()==5)Log::warn("sumting","very good");
 		}
     }
-    
     else if (m_action == "tutorial_giftboxes")
     {
         m_action_active = false;
@@ -841,6 +842,7 @@ void TrackObjectPresentationActionTrigger::onTriggerItemApproached(Item* who)
     {
         fprintf(stderr, "[TrackObject] WARNING: unknown action <%s>\n",
                 m_action.c_str());
+     
     }
 }
 

@@ -1,4 +1,4 @@
-/*
+
 #include <iostream>  // cout
 #include <assert.h>  // assert()
 #include <string.h>  // strstr()
@@ -19,7 +19,7 @@
 //using namespace std;
 //#define AS_USE_NAMESPACE
 
-//#ifdef __LINUX__
+//#ifdef _LINUX_
 
 #define UINT unsigned int 
 typedef unsigned int DWORD;
@@ -30,14 +30,15 @@ typedef unsigned int DWORD;
 DWORD timeGetTime()
 {
 	timeval time;
-	gettimeofday(&time, NULL);
-	return time.tv_sec*1000 + time.tv_usec/1000;
+	//gettimeofday(&time, NULL);
+	return 5;
+	//return time.tv_sec*1000 + time.tv_usec/1000;
 }
 
 // Linux does have a getch() function in the curses library, but it doesn't
 // work like it does on DOS. So this does the same thing, with out the need
 // of the curses library.
-int getch() 
+/*int getch() 
 {
 	struct termios oldt, newt;
 	int ch;
@@ -52,8 +53,8 @@ int getch()
 	tcsetattr( STDIN_FILENO, TCSANOW, &oldt );
 	return ch;
 }
-
-#endif
+*/
+//#endif
 
 // Function prototypes
 int  RunApplication(std::string);
@@ -61,7 +62,7 @@ void ConfigureEngine(asIScriptEngine *engine);
 int  CompileScript(asIScriptEngine *engine);
 void PrintString(std::string &str);
 void PrintString_Generic(asIScriptGeneric *gen);
-void timeGetTime_Generic(asIScriptGeneric *gen);
+//void timeGetTime_Generic(asIScriptGeneric *gen);
 void LineCallback(asIScriptContext *ctx, DWORD *timeOut);
 void displaymsg();
 
@@ -79,6 +80,7 @@ void dispmsg(asIScriptGeneric *gen){
 std::string ScriptEngineOne::doit(std::string scriptName)
 {
 	//displaymsg();
+	fprintf(stderr, "inside engine");
 	RunApplication(scriptName);
 
 	// Wait until the user presses a key
@@ -247,7 +249,7 @@ void ConfigureEngine(asIScriptEngine *engine)
 	{
 		// Notice how the registration is almost identical to the above. 
 		//r = engine->RegisterGlobalFunction("void Print(string &in)", asFUNCTION(PrintString_Generic), asCALL_GENERIC); assert( r >= 0 );
-		r = engine->RegisterGlobalFunction("uint GetSystemTime()", asFUNCTION(timeGetTime_Generic), asCALL_GENERIC); assert( r >= 0 );
+		//r = engine->RegisterGlobalFunction("uint GetSystemTime()", asFUNCTION(timeGetTime_Generic), asCALL_GENERIC); assert( r >= 0 );
 	}
 	r = engine->RegisterGlobalFunction("void displaymsg()", asFUNCTION(dispmsg), asCALL_GENERIC); assert(r>=0);
 
@@ -264,7 +266,8 @@ int CompileScript(asIScriptEngine *engine)
 	int r;
 
 	// We will load the script from a file on the disk.
-	FILE *f = fopen("D:\\Uni Torrents\\angelscript_2.28.1\\sdk\\samples\\tutorial\\bin\\script.as", "rb");
+	//FILE *f = fopen("D:\\Uni Torrents\\angelscript_2.28.1\\sdk\\samples\\tutorial\\bin\\script.as", "rb");
+	FILE *f = fopen("//media//New Volume//Uni Torrents//angelscript_2.28.1//sdk//samples//tutorial//bin//script.as", "rb");
 	if( f == 0 )
 	{
 		std::cout << "Failed to open the script file 'script.as'." << std::endl;
@@ -284,7 +287,7 @@ int CompileScript(asIScriptEngine *engine)
 	script.resize(len);
 	int c =	fread(&script[0], len, 1, f);
 	fclose(f);
-	
+	fprintf(stderr, "inside engine");
 	if( c == 0 ) 
 	{
 		std::cout << "Failed to load script file." << std::endl;
@@ -354,10 +357,11 @@ void PrintString_Generic(asIScriptGeneric *gen)
 	std::string *str = (std::string*)gen->GetArgAddress(0);
 	std::cout << *str;
 }
-
+/*
 // Function wrapper is needed when native calling conventions are not supported
 void timeGetTime_Generic(asIScriptGeneric *gen)
 {
 	gen->SetReturnDWord(timeGetTime());
 }
+
 */
