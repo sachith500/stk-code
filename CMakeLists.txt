@@ -91,6 +91,28 @@ else()
     include_directories(${OPENAL_INCLUDE_DIR})
 endif()
 
+#find_package(OggVorbis REQUIRED)
+#   include_directories(${OGGVORBIS_INCLUDE_DIRS})
+
+#find_library(PTHREAD_LIBRARY NAMES pthread pthreadVC2 PATHS ${PROJECT_SOURCE_DIR}/dependencies/lib)
+#    mark_as_advanced(PTHREAD_LIBRARY)
+#find_library(UIRREL_LIBRARIES NAMES sqstdio squirrel PATHS ${PROJECT_SOURCE_DIR}/dependencies/lib)
+#mark_as_advanced(SQUIRREL_LIBRARIES)
+######find_package(Squirrel REQUIRED)
+#############find_package(Squirrel REQUIRED)
+#include_directories(${Squirrel_INCLUDE_DIR})
+    #find_library(SQUIRREL_LIBRARIES NAMES sqstdio squirrel PATHS ${PROJECT_SOURCE_DIR}/dependencies/lib)
+#mark_as_advanced(SQUIRREL_LIBRARIES)
+   # include_directories(${SQUIRREL_INCLUDE_DIRS})
+###find_library(SQUIRREL_LIBRARY NAMES squirrel sqstdlib PATHS ${PROJECT_SOURCE_DIR}/dependencies/lib)
+###find_library(AngelScript NAMES angelscriptd PATHS ${PROJECT_SOURCE_DIR}/dependencies/lib)
+
+
+#find_package(Squirrel REQUIRED)
+#include_directories($SQUIRREL_INCLUDE_DIRS})
+#find_package(AngelScript REQUIRED)
+#include_directories($ANGELSCRIPT_INCLUDE_DIRS})
+
 # OggVorbis
 if(APPLE)
     # In theory it would be cleaner to let CMake detect the right dependencies. In practice, this means that if a OSX user has
@@ -133,7 +155,6 @@ else()
 endif()
 
 
-    
 # Set some compiler options
 if(UNIX)
     add_definitions(-Wall)
@@ -185,6 +206,8 @@ if(APPLE)
     find_library(AUDIOUNIT_LIBRARY AudioUnit)
     find_library(COCOA_LIBRARY Cocoa)
 
+
+
     target_link_libraries(supertuxkart
          ${IOKIT_LIBRARY}
          ${QUICKTIME_LIBRARY}
@@ -220,6 +243,8 @@ else()
     target_link_libraries(supertuxkart ${PTHREAD_LIBRARY})
 endif()
 
+
+
 # CURL
 if(WIN32)
     target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/libcurldll.a)
@@ -227,6 +252,7 @@ else()
     find_package(CURL REQUIRED)
     include_directories(${CURL_INCLUDE_DIRS})
 endif()
+
 
 # Common library dependencies
 target_link_libraries(supertuxkart
@@ -239,8 +265,19 @@ target_link_libraries(supertuxkart
     ${OGGVORBIS_LIBRARIES}
     ${IRRLICHT_XF86VM_LIBRARY}
     ${OPENAL_LIBRARY}
-    ${OPENGL_LIBRARIES})
-
+    ${OPENGL_LIBRARIES}
+    #${ANGELSCRIPT_LIBRARY}
+    #${SQUIRREL_LIBRARIES}
+)
+#link_directories(${PROJECT_SOURCE_DIR}/dependencies/lib)
+#link_directories("/media/New Volume/Github/stk/stk-code/dependencies/lib/squirrel.a")
+#target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/squirrel.a)
+#target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/sqstdio.a)
+#target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/angelscriptd.a)
+target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/libsquirrel.a)
+target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/libsqstdlib.a)
+target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/libangelscript.a)
+   
 
 if(APPLE)
     # In theory it would be cleaner to let CMake detect the right dependencies. In practice, this means that if a OSX user has
@@ -251,9 +288,9 @@ if(APPLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I/Library/Frameworks/OpenAL.framework/Versions/A/Headers")
 endif()
 
-target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/squirrel.lib)
-target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/sqstdlib.lib)
-target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/angelscriptd.lib)
+#target_link_libraries(supertuxkart ${SQUIRREL_LIBRARIES})
+#target_link_libraries(supertuxkart ${ANGELSCRIPT_LIBRARY})
+#target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/angelscriptd.lib)
 
 
 if(USE_FRIBIDI)
@@ -288,6 +325,9 @@ if(MSVC)
         "${PROJECT_SOURCE_DIR}/dependencies/dll"
         $<TARGET_FILE_DIR:supertuxkart>) 
 endif()
+
+
+
 
 # Optional tools
 add_subdirectory(tools/font_tool)

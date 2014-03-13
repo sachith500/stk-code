@@ -4,9 +4,11 @@
 
 		//#include "modes/world.hpp"
 
-        #include <squirrel.h> 
-        #include <sqstdio.h> 
-        #include <sqstdaux.h> 
+        #include "../../../dependencies/SQUIRREL3/include/squirrel.h"
+        //#include <sqstdio.h> 
+        //#include <sqstdaux.h> 
+        #include "../../../dependencies/SQUIRREL3/include/sqstdio.h"
+        #include "../../../dependencies/SQUIRREL3/include/sqstdaux.h"
 		#include "script_engine.hpp"
 
   /*      #ifdef _MSC_VER
@@ -55,7 +57,8 @@
 				const SQChar *program = "return\"hwaaatt\"";
  
 				if (SQ_FAILED(sq_compilebuffer(v, program, 
-                                   sizeof(SQChar) * strlen(program), 
+                                  // sizeof(SQChar) * strlen(program), 
+                                   sizeof(SQChar) * 16, 
                                    "program", SQTrue))) {
 				return NULL;
 				}

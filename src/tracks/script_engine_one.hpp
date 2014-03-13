@@ -1,3 +1,4 @@
+/*
 //
 //  SuperTuxKart - a fun racing game with go-kart
 //  Copyright (C) 2009-2013 Joerg Henrichs
@@ -22,9 +23,7 @@
 #include<string>
 
 class TrackObjectPresentation;
-/**
-  * \ingroup tracks
-  */
+
 class ScriptEngineOne
 {
 public:
@@ -45,3 +44,4 @@ private:
 	std::string outval;
 };   // class ScriptEngine
 #endif
+*/

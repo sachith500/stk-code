@@ -719,11 +719,11 @@ void TrackObjectPresentationActionTrigger::onTriggerItemApproached(Item* who)
     else if (m_action == "haybail")
     {
 		std::string outputval;
-		//ScriptEngine scripter = ScriptEngine::ScriptEngine();
-		ScriptEngineOne scripter = ScriptEngineOne::ScriptEngineOne();
+		ScriptEngine* scripter = new ScriptEngine();
+		//ScriptEngineOne scripter = ScriptEngineOne::ScriptEngineOne();
         m_action_active = false;
 		World::getWorld()->getTrack()->getTrackObjectManager()->disable("hayBail.b3d");
-		OutputDebugString("activated_");
+		//OutputDebugString("activated_");
 		time_t now;
 		time(&now);
 		time_t end;
@@ -732,7 +732,8 @@ void TrackObjectPresentationActionTrigger::onTriggerItemApproached(Item* who)
 		t1=clock();
 		//code goes here
 		for (int i=0;i<20;i++){
-		outputval= scripter.doit(m_action);
+		//outputval= scripter.doit(m_action);
+		outputval= scripter->doit();
 				t2=clock();
 		float diffe ((double)t2-(double)t1);
 		std::cout<<diffe<<std::endl;
@@ -755,13 +756,13 @@ void TrackObjectPresentationActionTrigger::onTriggerItemApproached(Item* who)
 		else {
 			//new TutorialMessageDialog(_("Avoid bananas!"), true);
 			char print[100];
-			std::string scriptout = scripter.getout();
+			std::string scriptout = scripter->getout();
 			scriptout = outputval;
 			for (int i=0;i<output.size();i++)print[i] = scriptout[i];
 			print[output.size()] = '\0';
-			OutputDebugString(print);
+			//OutputDebugString(print);
 			Log::warn("weh",print);
-			if (scripter.five()==5)Log::warn("sumting","very good");
+			if (scripter->five()==5)Log::warn("sumting","very good");
 		}
     }
     

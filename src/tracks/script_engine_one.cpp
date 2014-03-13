@@ -1,3 +1,4 @@
+/*
 #include <iostream>  // cout
 #include <assert.h>  // assert()
 #include <string.h>  // strstr()
@@ -8,17 +9,17 @@
 	#include <termios.h>
 	#include <unistd.h>
 #else
-	#include <conio.h>   // kbhit(), getch()
-	#include <windows.h> // timeGetTime()
+	//#include <conio.h>   // kbhit(), getch()
+	//#include <windows.h> // timeGetTime()
 #endif
-#include <angelscript.h>
+#include "angelscript.h"
 //#include <scriptstdstring.h>
 #include "script_engine_one.hpp"
 
 //using namespace std;
 //#define AS_USE_NAMESPACE
 
-#ifdef _LINUX_
+//#ifdef __LINUX__
 
 #define UINT unsigned int 
 typedef unsigned int DWORD;
@@ -359,3 +360,4 @@ void timeGetTime_Generic(asIScriptGeneric *gen)
 {
 	gen->SetReturnDWord(timeGetTime());
 }
+*/

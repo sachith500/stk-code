@@ -88,7 +88,7 @@ void TrackObjectManager::reset()
 
 void TrackObjectManager::disable(std::string name){
      TrackObject* curr;
-	 OutputDebugString("came here");
+	 //OutputDebugString("came here");
 	 
      for_in (curr,m_all_objects){
 		 std::cout<<name<<std::endl;
