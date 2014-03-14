@@ -217,6 +217,10 @@ src/race/race_manager.cpp
 src/replay/replay_base.cpp
 src/replay/replay_play.cpp
 src/replay/replay_recorder.cpp
+src/scriptengine/script_engine.cpp
+src/scriptengine/scriptarray.cpp
+src/scriptengine/scriptstdstring.cpp
+src/scriptengine/scriptstdstring_utils.cpp
 src/states_screens/addons_screen.cpp
 src/states_screens/arenas_screen.cpp
 src/states_screens/create_server_screen.cpp
@@ -304,8 +308,6 @@ src/tracks/lod_node_loader.cpp
 src/tracks/quad.cpp
 src/tracks/quad_graph.cpp
 src/tracks/quad_set.cpp
-src/tracks/script_engine.cpp
-src/tracks/script_engine_one.cpp
 src/tracks/terrain_info.cpp
 src/tracks/track.cpp
 src/tracks/track_manager.cpp
@@ -555,6 +557,7 @@ src/race/race_manager.hpp
 src/replay/replay_base.hpp
 src/replay/replay_play.hpp
 src/replay/replay_recorder.hpp
+src/scriptengine/script_engine.hpp
 src/states_screens/addons_screen.hpp
 src/states_screens/arenas_screen.hpp
 src/states_screens/create_server_screen.hpp
@@ -644,8 +647,6 @@ src/tracks/lod_node_loader.hpp
 src/tracks/quad.hpp
 src/tracks/quad_graph.hpp
 src/tracks/quad_set.hpp
-src/tracks/script_engine.hpp
-src/tracks/script_engine_one.hpp
 src/tracks/terrain_info.hpp
 src/tracks/track.hpp
 src/tracks/track_manager.hpp

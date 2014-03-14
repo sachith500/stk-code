@@ -38,8 +38,8 @@
 #include "tracks/lod_node_loader.hpp"
 #include "tracks/track.hpp"
 #include "tracks/track_object_manager.hpp"
-#include "tracks/script_engine.hpp"
-#include "tracks/script_engine_one.hpp"
+#include "scriptengine/script_engine.hpp"
+//#include "scriptengine/script_engine_one.hpp"
 #include <ISceneManager.h>
 #include <IMeshSceneNode.h>
 #include <ICameraSceneNode.h>
@@ -773,7 +773,6 @@ void TrackObjectPresentationActionTrigger::onTriggerItemApproached(Item* who)
         InputDevice* device = input_manager->getDeviceList()->getLatestUsedDevice();
         DeviceConfig* config = device->getConfiguration();
         irr::core::stringw fire = config->getBindingAsString(PA_FIRE);
-
         new TutorialMessageDialog(_("Collect gift boxes, and fire the weapon with <%s> to blow away these boxes!", fire),
                                 true);
     }

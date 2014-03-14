@@ -17,7 +17,6 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "tracks/track_object.hpp"
-
 #include "animations/three_d_animation.hpp"
 #include "graphics/irr_driver.hpp"
 #include "io/file_manager.hpp"

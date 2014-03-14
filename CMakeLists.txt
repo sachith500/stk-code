@@ -269,15 +269,15 @@ target_link_libraries(supertuxkart
     #${ANGELSCRIPT_LIBRARY}
     #${SQUIRREL_LIBRARIES}
 )
-#link_directories(${PROJECT_SOURCE_DIR}/dependencies/lib)
-#link_directories("/media/New Volume/Github/stk/stk-code/dependencies/lib/squirrel.a")
-#target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/squirrel.a)
-#target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/sqstdio.a)
-#target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/angelscriptd.a)
-target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/libsquirrel.a)
-target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/libsqstdlib.a)
-target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/libangelscript.a)
-   
+#LINUX
+#target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/libsquirrel.a)
+#target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/libsqstdlib.a)
+#target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/libangelscript.a)
+
+#WINDOWS
+#target_link_libraries(supertuxkart ${SQUIRREL_LIBRARIES})
+#target_link_libraries(supertuxkart ${ANGELSCRIPT_LIBRARY})
+target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/angelscriptd.lib)   
 
 if(APPLE)
     # In theory it would be cleaner to let CMake detect the right dependencies. In practice, this means that if a OSX user has
@@ -288,9 +288,7 @@ if(APPLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I/Library/Frameworks/OpenAL.framework/Versions/A/Headers")
 endif()
 
-#target_link_libraries(supertuxkart ${SQUIRREL_LIBRARIES})
-#target_link_libraries(supertuxkart ${ANGELSCRIPT_LIBRARY})
-#target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/angelscriptd.lib)
+
 
 
 if(USE_FRIBIDI)
