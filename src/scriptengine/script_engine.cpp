@@ -146,8 +146,8 @@ int RunApplication(std::string scriptName)
 	// that will abort the script after a certain time. Before executing the 
 	// script the timeOut variable will be set to the time when the script must 
 	// stop executing. 
-	DWORD timeOut;
-	r = ctx->SetLineCallback(asFUNCTION(LineCallback), &timeOut, asCALL_CDECL);
+	//DWORD timeOut;
+	//r = ctx->SetLineCallback(asFUNCTION(LineCallback), &timeOut, asCALL_CDECL);
 	if( r < 0 )
 	{
 		std::cout << "Failed to set the line callback function." << std::endl;
@@ -227,7 +227,6 @@ int RunApplication(std::string scriptName)
 
 	return 0;
 }
-
 void ConfigureEngine(asIScriptEngine *engine)
 {
 	int r;
