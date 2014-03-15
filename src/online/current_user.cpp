@@ -26,13 +26,14 @@
 #include "config/user_config.hpp"
 #include "guiengine/dialog_queue.hpp"
 #include "guiengine/screen.hpp"
-#include "online/servers_manager.hpp"
+#include "online/online_profile.hpp"
 #include "online/profile_manager.hpp"
+#include "online/servers_manager.hpp"
 #include "states_screens/login_screen.hpp"
+#include "states_screens/online_profile_friends.hpp"
 #include "states_screens/dialogs/change_password_dialog.hpp"
 #include "states_screens/dialogs/user_info_dialog.hpp"
 #include "states_screens/dialogs/notification_dialog.hpp"
-#include "states_screens/online_profile_friends.hpp"
 #include "utils/log.hpp"
 #include "utils/translation.hpp"
 
@@ -62,6 +63,21 @@ namespace Online
         delete current_user_singleton;
         current_user_singleton = NULL;
     }   // deallocate
+    // ------------------------------------------------------------------------
+    /** Adds the login credential to a http request. A handy static function
+     *  to allow for shorter request creation code. It sets the name of
+     *  the script to invokce, token, and user id.
+     *  \param request The http request.
+     */
+    void CurrentUser::setUserDetails(HTTPRequest *request)
+    {
+        CurrentUser *cu = CurrentUser::get();
+        assert(cu && cu->m_state == US_SIGNED_IN);
+        assert(cu->m_profile);
+        request->setServerURL("client-user.php");
+        request->addParameter("token", cu->m_token);
+        request->addParameter("userid", cu->m_profile->getID());
+    }   // setUserDetails
 
     // ========================================================================
     CurrentUser::CurrentUser()
@@ -71,39 +87,6 @@ namespace Online
         m_save_session = false;
         m_profile      = NULL;
     }   // CurrentUser
-
-    // ------------------------------------------------------------------------
-    const XMLRequest * CurrentUser::requestRecovery(const core::stringw &username,
-                                                    const core::stringw &email)
-    {
-        assert(m_state == US_SIGNED_OUT || m_state == US_GUEST);
-        XMLRequest * request = new XMLRequest();
-        request->setServerURL("client-user.php");
-        request->addParameter("action", "recovery");
-        request->addParameter("username", username);
-        request->addParameter("email", email);
-        request->queue();
-        return request;
-    }   // requestRecovery
-
-    // ------------------------------------------------------------------------
-    const XMLRequest * CurrentUser::requestSignUp(const core::stringw &username,
-                                                  const core::stringw &password,
-                                                  const core::stringw &password_confirm,
-                                                  const core::stringw &email)
-    {
-        assert(m_state == US_SIGNED_OUT || m_state == US_GUEST);
-        XMLRequest * request = new XMLRequest();
-        request->setServerURL("client-user.php");
-        request->addParameter("action", "register");
-        request->addParameter("username", username);
-        request->addParameter("password", password);
-        request->addParameter("password_confirm", password_confirm);
-        request->addParameter("email", email);
-        request->addParameter("terms", "on");
-        request->queue();
-        return request;
-    }   // requestSignUp
 
     // ------------------------------------------------------------------------
     /** Request a login using the saved credentials of the user.
@@ -188,7 +171,7 @@ namespace Online
             int username_fetched    = input->get("username", &username);
             uint32_t userid(0);
             int userid_fetched      = input->get("userid", &userid);
-            m_profile = new Profile(userid, username, true);
+            m_profile = new OnlineProfile(userid, username, true);
             assert(token_fetched && username_fetched && userid_fetched);
             m_state = US_SIGNED_IN;
             if(saveSession())
@@ -249,34 +232,6 @@ namespace Online
         UserConfigParams::m_saved_token = "";
         UserConfigParams::m_saved_session = false;
     }   // signOut
-
-    // ------------------------------------------------------------------------
-    const CurrentUser::ServerCreationRequest*
-                  CurrentUser::requestServerCreation(const core::stringw &name,
-                                                     int max_players)
-    {
-        assert(m_state == US_SIGNED_IN);
-        ServerCreationRequest * request = new ServerCreationRequest();
-        request->setServerURL("client-user.php");
-        request->addParameter("action",           "create_server");
-        request->addParameter("token",            getToken());
-        request->addParameter("userid",           getID());
-        request->addParameter("name",             name);
-        request->addParameter("max_players",      max_players);
-        request->queue();
-        return request;
-    }   // requestServerCreation
-
-    // ------------------------------------------------------------------------
-    void CurrentUser::ServerCreationRequest::callback()
-    {
-        if(isSuccess())
-        {
-            Server * server = new Server(*getXMLData()->getNode("server"));
-            ServersManager::get()->addServer(server);
-            m_created_server_id = server->getServerId();
-        }
-    }   // ServerCreationRequest::callback
 
     // ------------------------------------------------------------------------
     CurrentUser::ServerJoinRequest* 
@@ -366,7 +321,7 @@ namespace Online
      *  search term.
      *  \param search_string the string to search for.
      */
-    const XMLRequest*
+    XMLRequest*
         CurrentUser::requestUserSearch(const core::stringw &search_string) const
     {
         assert(m_state == US_SIGNED_IN);
@@ -381,138 +336,6 @@ namespace Online
     }   // requestUserSearch
 
     // ------------------------------------------------------------------------
-    /** A request to the server, to invite a user to be friends.
-     *  \param friend_id The id of the user which has to be friended.
-     */
-    void CurrentUser::requestFriendRequest(const uint32_t friend_id) const
-    {
-        assert(m_state == US_SIGNED_IN);
-        CurrentUser::FriendRequest * request = new CurrentUser::FriendRequest();
-        request->setServerURL("client-user.php");
-        request->addParameter("action", "friend-request");
-        request->addParameter("token", getToken());
-        request->addParameter("userid", getID());
-        request->addParameter("friendid", friend_id);
-        request->queue();
-    }   // requestFriendRequest
-
-    // ------------------------------------------------------------------------
-    /** Callback for the request to send a friend invitation. Shows a
-     *  confirmation message and takes care of updating all the cached
-     *  information.
-     */
-    void CurrentUser::FriendRequest::callback()
-    {
-        uint32_t id(0);
-        getXMLData()->get("friendid", &id);
-        core::stringw info_text("");
-        if(isSuccess())
-        {
-            CurrentUser::get()->getProfile()->addFriend(id);
-            Profile::RelationInfo *info = 
-                new Profile::RelationInfo(_("Today"), false, true, false);
-            ProfileManager::get()->getProfileByID(id)->setRelationInfo(info);
-            OnlineProfileFriends::getInstance()->refreshFriendsList();
-            info_text = _("Friend request send!");
-        }
-        else
-            info_text = getInfo();
-        UserInfoDialog *dialog = new UserInfoDialog(id, info_text,
-                                                    !isSuccess(), true);
-        GUIEngine::DialogQueue::get()->pushDialog(dialog, true);
-    }   // FriendRequest::callback
-
-    // ------------------------------------------------------------------------
-    /** A request to the server, to accept a friend request.
-     *  \param friend_id The id of the user of which the request has to be
-     *         accepted.
-     */
-    void CurrentUser::requestAcceptFriend(const uint32_t friend_id) const
-    {
-        assert(m_state == US_SIGNED_IN);
-        CurrentUser::AcceptFriendRequest * request =
-                                        new CurrentUser::AcceptFriendRequest();
-        request->setServerURL("client-user.php");
-        request->addParameter("action", "accept-friend-request");
-        request->addParameter("token", getToken());
-        request->addParameter("userid", getID());
-        request->addParameter("friendid", friend_id);
-        request->queue();
-    }   // requestAcceptFriend
-
-    // ------------------------------------------------------------------------
-    /** Callback for the request to accept a friend invitation. Shows a
-     *  confirmation message and takes care of updating all the cached
-     *  information.
-     */
-    void CurrentUser::AcceptFriendRequest::callback()
-    {
-        uint32_t id(0);
-        getXMLData()->get("friendid", &id);
-        core::stringw info_text("");
-        if(isSuccess())
-        {
-            Profile * profile = ProfileManager::get()->getProfileByID(id);
-            profile->setFriend();
-            Profile::RelationInfo *info = 
-                     new Profile::RelationInfo(_("Today"), false, false, true);
-            profile->setRelationInfo(info);
-            OnlineProfileFriends::getInstance()->refreshFriendsList();
-            info_text = _("Friend request accepted!");
-        }
-        else
-            info_text = getInfo();
-        GUIEngine::DialogQueue::get()->pushDialog( 
-                   new UserInfoDialog(id, info_text,!isSuccess(), true), true);
-    }   // AcceptFriendRequest::callback
-
-    // ------------------------------------------------------------------------
-    /** A request to the server, to decline a friend request.
-     *  \param friend_id The id of the user of which the request has to be
-     *         declined.
-     */
-    void CurrentUser::requestDeclineFriend(const uint32_t friend_id) const
-    {
-        assert(m_state == US_SIGNED_IN);
-        CurrentUser::DeclineFriendRequest * request =
-                                       new CurrentUser::DeclineFriendRequest();
-        request->setServerURL("client-user.php");
-        request->addParameter("action", "decline-friend-request");
-        request->addParameter("token", getToken());
-        request->addParameter("userid", getID());
-        request->addParameter("friendid", friend_id);
-        request->queue();
-    }   // requestDeclineFriend
-
-    // ------------------------------------------------------------------------
-    /** Callback for the request to decline a friend invitation. Shows a
-     *  confirmation message and takes care of updating all the cached
-     *  information.
-     */
-    void CurrentUser::DeclineFriendRequest::callback()
-    {
-        uint32_t id(0);
-        getXMLData()->get("friendid", &id);
-        core::stringw info_text("");
-        if(isSuccess())
-        {
-            CurrentUser::get()->getProfile()->removeFriend(id);
-            ProfileManager::get()->moveToCache(id);
-            ProfileManager::get()->getProfileByID(id)->deleteRelationalInfo();
-            OnlineProfileFriends::getInstance()->refreshFriendsList();
-            info_text = _("Friend request declined!");
-        }
-        else
-            info_text = getInfo();
-        GUIEngine::DialogQueue::get()->pushDialog(
-                   new UserInfoDialog(id, info_text,!isSuccess(), true), true);
-    }   // DeclineFriendRequest::callback
-
-    // ------------------------------------------------------------------------
-    /** A request to the server, to cancel a pending friend request.
-     *  \param friend_id The id of the user of which the request has to be
-     *  canceled.
-     */
     void CurrentUser::requestCancelFriend(const uint32_t friend_id) const
     {
         assert(m_state == US_SIGNED_IN);
@@ -559,7 +382,7 @@ namespace Online
     {
         assert(m_state == US_SIGNED_IN);
         CurrentUser::RemoveFriendRequest * request = 
-                                        new CurrentUser::RemoveFriendRequest();
+                                  new CurrentUser::RemoveFriendRequest(friend_id);
         request->setServerURL("client-user.php");
         request->addParameter("action", "remove-friend");
         request->addParameter("token", getToken());
@@ -574,20 +397,18 @@ namespace Online
      */
     void CurrentUser::RemoveFriendRequest::callback()
     {
-        uint32_t id(0);
-        getXMLData()->get("friendid", &id);
         core::stringw info_text("");
         if(isSuccess())
         {
-            CurrentUser::get()->getProfile()->removeFriend(id);
-            ProfileManager::get()->moveToCache(id);
-            ProfileManager::get()->getProfileByID(id)->deleteRelationalInfo();
+            CurrentUser::get()->getProfile()->removeFriend(m_id);
+            ProfileManager::get()->moveToCache(m_id);
+            ProfileManager::get()->getProfileByID(m_id)->deleteRelationalInfo();
             OnlineProfileFriends::getInstance()->refreshFriendsList();
             info_text = _("Friend removed!");
         }
         else
             info_text = getInfo();
-        UserInfoDialog *info = new UserInfoDialog(id, info_text,!isSuccess(), 
+        UserInfoDialog *info = new UserInfoDialog(m_id, info_text,!isSuccess(), 
                                                   true);
         GUIEngine::DialogQueue::get()->pushDialog(info, true);
 
@@ -683,9 +504,9 @@ namespace Online
                              now_online = true;
                              online_friends.erase(iter);
                          }
-                         Profile * profile =
+                         OnlineProfile * profile =
                              ProfileManager::get()->getProfileByID(friends[i]);
-                         Profile::RelationInfo * relation_info = 
+                         OnlineProfile::RelationInfo * relation_info = 
                                                     profile->getRelationInfo();
                          if( relation_info->isOnline() )
                          {
@@ -755,9 +576,9 @@ namespace Online
                 const XMLNode * node = getXMLData()->getNode(i);
                 if(node->getName() == "new_friend_request")
                 {
-                    Profile::RelationInfo * ri = 
-                        new Profile::RelationInfo("New", false, true, true);
-                    Profile * p = new Profile(node);
+                    OnlineProfile::RelationInfo * ri = 
+                        new OnlineProfile::RelationInfo("New", false, true, true);
+                    OnlineProfile * p = new OnlineProfile(node);
                     p->setRelationInfo(ri);
                     ProfileManager::get()->addPersistent(p);
                     friend_request_count++;

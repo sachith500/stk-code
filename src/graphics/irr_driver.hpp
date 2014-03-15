@@ -116,6 +116,11 @@ private:
 
 	std::vector<video::ITexture *> SkyboxTextures;
 
+    float blueSHCoeff[9];
+    float greenSHCoeff[9];
+    float redSHCoeff[9];
+
+
     /** Flag to indicate if a resolution change is pending (which will be
      *  acted upon in the next update). None means no change, yes means
      *  change to new resolution and trigger confirmation dialog.
@@ -125,6 +130,7 @@ private:
           RES_CHANGE_CANCEL}                m_resolution_changing;
 
 public:
+    GLuint SkyboxCubeMap, ConvolutedSkyboxCubeMap;
     /** A simple class to store video resolutions. */
     class VideoMode
     {
@@ -225,6 +231,7 @@ public:
         ~IrrDriver();
     void initDevice();
     void reset();
+    void generateSkyboxCubemap();
     void renderSkybox();
 	void setPhase(STKRenderingPass);
 	STKRenderingPass getPhase() const;

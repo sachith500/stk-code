@@ -19,9 +19,10 @@
 #ifndef HEADER_CURRENT_ONLINE_USER_HPP
 #define HEADER_CURRENT_ONLINE_USER_HPP
 
+#include "online/http_request.hpp"
+#include "online/online_profile.hpp"
 #include "online/request_manager.hpp"
 #include "online/server.hpp"
-#include "online/profile.hpp"
 #include "online/xml_request.hpp"
 #include "utils/types.hpp"
 #include "utils/synchronised.hpp"
@@ -33,6 +34,8 @@
 
 namespace Online
 {
+
+    class OnlineProfile;
 
     // ============================================================================
 
@@ -70,19 +73,6 @@ namespace Online
             };   // SignOutRequest
 
             // ----------------------------------------------------------------
-            class ServerCreationRequest : public XMLRequest {
-                virtual void callback ();
-                uint32_t m_created_server_id;
-            public:
-                ServerCreationRequest() : XMLRequest() {}
-                const uint32_t getCreatedServerID() const 
-                {
-                    assert(isDone());
-                    return m_created_server_id;
-                }   // getCreatedServerID
-            };   // ServerCreationRequest
-
-            // ----------------------------------------------------------------
 
             class ServerJoinRequest : public XMLRequest {
                 virtual void callback ();
@@ -98,31 +88,12 @@ namespace Online
             };   // SetAddonVoteRequest
 
             // ----------------------------------------------------------------
-            class FriendRequest : public XMLRequest {
-                virtual void callback ();
-            public:
-                FriendRequest() : XMLRequest(true) {}
-            };   // FriendRequest
-
-            // ----------------------------------------------------------------
-            class AcceptFriendRequest : public XMLRequest {
-                virtual void callback ();
-            public:
-                AcceptFriendRequest() : XMLRequest(true) {}
-            };   // AcceptFriendRequest
-
-            // ----------------------------------------------------------------
-            class DeclineFriendRequest : public XMLRequest {
-                virtual void callback ();
-            public:
-                DeclineFriendRequest() : XMLRequest(true) {}
-            };   // DeclineFriendRequest
-
-            // ----------------------------------------------------------------
             class RemoveFriendRequest : public XMLRequest {
+                unsigned int m_id;
                 virtual void callback ();
             public:
-                RemoveFriendRequest() : XMLRequest(true) {}
+                RemoveFriendRequest(unsigned int id)
+                    : XMLRequest(true), m_id(id) {}
             };   // RemoveFriendRequest
 
             // ----------------------------------------------------------------
@@ -152,7 +123,7 @@ namespace Online
             std::string                 m_token;
             bool                        m_save_session;
             UserState                   m_state;
-            Profile *                   m_profile;
+            OnlineProfile              *m_profile;
 
             bool saveSession()  const   { return m_save_session;      }
 
@@ -165,6 +136,7 @@ namespace Online
             /**Singleton */
             static CurrentUser *            get();
             static void                     deallocate();
+            static void setUserDetails(HTTPRequest *request);
 
             void                            requestSavedSession();
             SignInRequest *                 requestSignIn(  const irr::core::stringw &username,
@@ -172,31 +144,19 @@ namespace Online
                                                             bool save_session,
                                                             bool request_now = true);
             void                            requestSignOut();
-            const ServerCreationRequest *   requestServerCreation(const irr::core::stringw &name, int max_players);
             ServerJoinRequest *             requestServerJoin(uint32_t server_id, bool request_now = true);
-
-
-            /** Register */
-            const XMLRequest *              requestSignUp(  const irr::core::stringw &username,
-                                                            const irr::core::stringw &password,
-                                                            const irr::core::stringw &password_ver,
-                                                            const irr::core::stringw &email);
-
-            const XMLRequest *              requestRecovery(const irr::core::stringw &username,
-                                                            const irr::core::stringw &email);
 
             const XMLRequest *              requestGetAddonVote(const std::string & addon_id) const;
             const SetAddonVoteRequest *     requestSetAddonVote(const std::string & addon_id, float rating) const;
             void                            requestFriendRequest(const uint32_t friend_id) const;
             void                            requestAcceptFriend(const uint32_t friend_id) const;
-            void                            requestDeclineFriend(const uint32_t friend_id) const;
             void                            requestRemoveFriend(const uint32_t friend_id) const;
             void                            requestCancelFriend(const uint32_t friend_id) const;
             void                            requestPasswordChange(  const irr::core::stringw &current_password,
                                                                     const irr::core::stringw &new_password,
                                                                     const irr::core::stringw &new_password_ver) const;
 
-            const XMLRequest *              requestUserSearch(const irr::core::stringw & search_string) const;
+            XMLRequest *                    requestUserSearch(const irr::core::stringw & search_string) const;
 
             void                            onSTKQuit() const;
             void                            onAchieving(uint32_t achievement_id) const;
@@ -204,14 +164,20 @@ namespace Online
 
             irr::core::stringw              getUserName()           const;
             uint32_t                        getID()                 const;
+            // ----------------------------------------------------------------
             /** Returns the user state. */
-            const UserState                 getUserState()          const { return m_state; }
+            const UserState getUserState() const { return m_state; }
+            // ----------------------------------------------------------------
             /** Returns whether a user is signed in or not. */
-            bool                            isRegisteredUser()      const { return m_state == US_SIGNED_IN; }
+            bool isRegisteredUser() const { return m_state == US_SIGNED_IN; }
+            // ----------------------------------------------------------------
             /** Returns the session token of the signed in user. */
-            const std::string &             getToken()              const { return m_token; }
-            /** Returns a pointer to the profile associated with the current user. */
-            Profile *                       getProfile()            const { return m_profile; }
+            const std::string& getToken() const { return m_token; }
+            // ----------------------------------------------------------------
+            /** Returns a pointer to the profile associated with the current
+             *  user. */
+            OnlineProfile* getProfile() const { return m_profile; }
+            // ----------------------------------------------------------------
 
     };   // class CurrentUser
 

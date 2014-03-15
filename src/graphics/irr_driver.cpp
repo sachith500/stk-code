@@ -454,10 +454,9 @@ void IrrDriver::initDevice()
         m_shadow_importance = new ShadowImportance();
 
         m_mrt.clear();
-        m_mrt.reallocate(3);
+        m_mrt.reallocate(2);
         m_mrt.push_back(m_rtts->getRTT(RTT_COLOR));
         m_mrt.push_back(m_rtts->getRTT(RTT_NORMAL_AND_DEPTH));
-        m_mrt.push_back(m_rtts->getRTT(RTT_SPECULARMAP));
 
         irr::video::COpenGLDriver*	gl_driver = (irr::video::COpenGLDriver*)m_device->getVideoDriver();
         gl_driver->extGlGenQueries(1, &m_lensflare_query);
@@ -1171,7 +1170,10 @@ scene::ISceneNode *IrrDriver::addSkyDome(video::ITexture *texture,
 scene::ISceneNode *IrrDriver::addSkyBox(const std::vector<video::ITexture*>
                                         &texture)
 {
+    assert(texture.size() == 6);
 	SkyboxTextures = texture;
+    SkyboxCubeMap = 0;
+    ConvolutedSkyboxCubeMap = 0;
     return m_scene_manager->addSkyBoxSceneNode(texture[0], texture[1],
                                                texture[2], texture[3],
                                                texture[4], texture[5]);
@@ -1180,6 +1182,10 @@ scene::ISceneNode *IrrDriver::addSkyBox(const std::vector<video::ITexture*>
 void IrrDriver::suppressSkyBox()
 {
 	SkyboxTextures.clear();
+    glDeleteTextures(1, &SkyboxCubeMap);
+    glDeleteTextures(1, &ConvolutedSkyboxCubeMap);
+    SkyboxCubeMap = 0;
+    ConvolutedSkyboxCubeMap = 0;
 }
 
 // ----------------------------------------------------------------------------
@@ -1800,18 +1806,7 @@ void IrrDriver::update(float dt)
 
     World *world = World::getWorld();
 
-    // Handle cut scenes (which do not have any karts in it)
-    // =====================================================
-    if (world && world->getNumKarts() == 0)
-    {
-        m_video_driver->beginScene(/*backBuffer clear*/true, /*zBuffer*/true,
-                                   world->getClearColor());
-        m_scene_manager->drawAll();
-        GUIEngine::render(dt);
-        m_video_driver->endScene();
-        return;
-    }
-    else if (GUIEngine::getCurrentScreen() != NULL &&
+    if (GUIEngine::getCurrentScreen() != NULL &&
              GUIEngine::getCurrentScreen()->needs3D())
     {
         //printf("Screen that needs 3D\n");
@@ -1824,10 +1819,10 @@ void IrrDriver::update(float dt)
     }
     else if (!world)
     {
-    m_video_driver->beginScene(/*backBuffer clear*/ true, /*zBuffer*/ true,
+        m_video_driver->beginScene(/*backBuffer clear*/ true, /*zBuffer*/ true,
                                    video::SColor(255,100,101,140));
 
-    GUIEngine::render(dt);
+        GUIEngine::render(dt);
 
         m_video_driver->endScene();
         return;
