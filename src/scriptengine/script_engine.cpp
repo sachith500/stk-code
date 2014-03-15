@@ -46,7 +46,7 @@ using namespace irr;
 // Function prototypes
 int  RunApplication(std::string);
 void ConfigureEngine(asIScriptEngine *engine);
-int  CompileScript(asIScriptEngine *engine);
+int  CompileScript(asIScriptEngine *engine,std::string scriptName);
 void PrintString(std::string &str);
 void PrintString_Generic(asIScriptGeneric *gen);
 //void timeGetTime_Generic(asIScriptGeneric *gen);
@@ -72,6 +72,12 @@ void dispmsg(asIScriptGeneric *gen){
 	//char ** input = (char **)gen->GetArgAddress(0);irr::core::stringw
 	std::string *input = (std::string*)gen->GetArgAddress(0);
 	//irr::core::stringw *input = (irr::core::stringw*)gen->GetArgAddress(0);
+	irr::core::stringw msgtodisp;
+	for (int i=0;i<(*input).size();i++)msgtodisp += (*input)[i];
+	irr::core::stringw out = irr::core::stringw((*input).c_str());
+	std::cout<<msgtodisp.c_str();
+	//stringw(std::string.c_str())
+	new TutorialMessageDialog((out),true); 
 	displaymsg(*input);
 }
 
@@ -119,7 +125,7 @@ int RunApplication(std::string scriptName)
 	ConfigureEngine(engine);
 	
 	// Compile the script code
-	r = CompileScript(engine);
+	r = CompileScript(engine,scriptName);
 	if( r < 0 )
 	{
 		engine->Release();
@@ -151,7 +157,9 @@ int RunApplication(std::string scriptName)
 	}
 
 	// Find the function for the function we want to execute.
-	asIScriptFunction *func = engine->GetModule(0)->GetFunctionByDecl("float calc(float, float)");
+	//This is how you call a normal function with arguments
+	//asIScriptFunction *func = engine->GetModule(0)->GetFunctionByDecl("void onTrigger(float, float)");
+	asIScriptFunction *func = engine->GetModule(0)->GetFunctionByDecl("void onTrigger()");
 	if( func == 0 )
 	{
 		std::cout << "The function 'float calc(float, float)' was not found." << std::endl;
@@ -175,8 +183,8 @@ int RunApplication(std::string scriptName)
 	}
 
 	// Now we need to pass the parameters to the script function. 
-	ctx->SetArgFloat(0, 3.14159265359f);
-	ctx->SetArgFloat(1, 2.71828182846f);
+	//ctx->SetArgFloat(0, 3.14159265359f);
+	//ctx->SetArgFloat(1, 2.71828182846f);
 
 
 	// Execute the function
@@ -207,8 +215,8 @@ int RunApplication(std::string scriptName)
 	else
 	{
 		// Retrieve the return value from the context
-		float returnValue = ctx->GetReturnFloat();
-		std::cout << "The script function returned: " << returnValue << std::endl;
+		//float returnValue = ctx->GetReturnFloat();
+		//std::cout << "The script function returned: " << returnValue << std::endl;
 	}
 
 	// We must release the contexts when no longer using them
@@ -238,15 +246,15 @@ void ConfigureEngine(asIScriptEngine *engine)
 		// be caught when a script is being built, so it is not necessary
 		// to do the verification here as well.
 		r = engine->RegisterGlobalFunction("void Print(string &in)", asFUNCTION(PrintString), asCALL_CDECL); assert( r >= 0 );
-		//r = engine->RegisterGlobalFunction("uint GetSystemTime()", asFUNCTION(timeGetTime), asCALL_STDCALL); assert( r >= 0 );
+		
 	}
 	else
 	{
 		// Notice how the registration is almost identical to the above. 
 		r = engine->RegisterGlobalFunction("void Print(string &in)", asFUNCTION(PrintString_Generic), asCALL_GENERIC); assert( r >= 0 );
-		//r = engine->RegisterGlobalFunction("uint GetSystemTime()", asFUNCTION(timeGetTime_Generic), asCALL_GENERIC); assert( r >= 0 );
+		
 	}
-	r = engine->RegisterGlobalFunction("void displaymsg(string &in)", asFUNCTION(dispmsg), asCALL_GENERIC); assert(r>=0);
+	r = engine->RegisterGlobalFunction("void displayMessage(string &in)", asFUNCTION(dispmsg), asCALL_GENERIC); assert(r>=0);
 
 	// It is possible to register the functions, properties, and types in 
 	// configuration groups as well. When compiling the scripts it then
@@ -256,12 +264,15 @@ void ConfigureEngine(asIScriptEngine *engine)
 	// without having to recompile all the scripts.
 }
 
-int CompileScript(asIScriptEngine *engine)
+int CompileScript(asIScriptEngine *engine, std::string scriptName)
 {
 	int r;
 
 	// We will load the script from a file on the disk.
-	FILE *f = fopen("D:\\Github\\stk\\stk-code\\src\\scriptengine\\script.as", "rb");
+	std::string load_dir = "D:\\Github\\stk\\stk-code\\src\\scriptengine\\";
+	//std::string load_dir = "D:\\Github\\stk\\stk-code\\src\\scriptengine\\";
+	load_dir += scriptName + ".as";
+	FILE *f = fopen(load_dir.c_str(), "rb");
 	//FILE *f = fopen("D:\\Uni Torrents\\angelscript_2.28.1\\sdk\\samples\\tutorial\\bin\\script.as", "rb");
 	//FILE *f = fopen("//media//New Volume//Uni Torrents//angelscript_2.28.1//sdk//samples//tutorial//bin//script.as", "rb");
 	if( f == 0 )
@@ -328,14 +339,6 @@ int CompileScript(asIScriptEngine *engine)
 	return 0;
 }
 
-void LineCallback(asIScriptContext *ctx, DWORD *timeOut)
-{
-
-	// It would also be possible to only suspend the script,
-	// instead of aborting it. That would allow the application
-	// to resume the execution where it left of at a later 
-	// time, by simply calling Execute() again.
-}
 
 // Function implementation with native calling convention
 void PrintString(std::string &str)
@@ -349,11 +352,3 @@ void PrintString_Generic(asIScriptGeneric *gen)
 	std::string *str = (std::string*)gen->GetArgAddress(0);
 	std::cout << *str;
 }
-/*
-// Function wrapper is needed when native calling conventions are not supported
-void timeGetTime_Generic(asIScriptGeneric *gen)
-{
-	gen->SetReturnDWord(timeGetTime());
-}
-
-*/
