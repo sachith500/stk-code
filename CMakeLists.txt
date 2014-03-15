@@ -91,27 +91,7 @@ else()
     include_directories(${OPENAL_INCLUDE_DIR})
 endif()
 
-#find_package(OggVorbis REQUIRED)
-#   include_directories(${OGGVORBIS_INCLUDE_DIRS})
 
-#find_library(PTHREAD_LIBRARY NAMES pthread pthreadVC2 PATHS ${PROJECT_SOURCE_DIR}/dependencies/lib)
-#    mark_as_advanced(PTHREAD_LIBRARY)
-#find_library(UIRREL_LIBRARIES NAMES sqstdio squirrel PATHS ${PROJECT_SOURCE_DIR}/dependencies/lib)
-#mark_as_advanced(SQUIRREL_LIBRARIES)
-######find_package(Squirrel REQUIRED)
-#############find_package(Squirrel REQUIRED)
-#include_directories(${Squirrel_INCLUDE_DIR})
-    #find_library(SQUIRREL_LIBRARIES NAMES sqstdio squirrel PATHS ${PROJECT_SOURCE_DIR}/dependencies/lib)
-#mark_as_advanced(SQUIRREL_LIBRARIES)
-   # include_directories(${SQUIRREL_INCLUDE_DIRS})
-###find_library(SQUIRREL_LIBRARY NAMES squirrel sqstdlib PATHS ${PROJECT_SOURCE_DIR}/dependencies/lib)
-###find_library(AngelScript NAMES angelscriptd PATHS ${PROJECT_SOURCE_DIR}/dependencies/lib)
-
-
-#find_package(Squirrel REQUIRED)
-#include_directories($SQUIRREL_INCLUDE_DIRS})
-#find_package(AngelScript REQUIRED)
-#include_directories($ANGELSCRIPT_INCLUDE_DIRS})
 
 # OggVorbis
 if(APPLE)
@@ -265,18 +245,11 @@ target_link_libraries(supertuxkart
     ${OGGVORBIS_LIBRARIES}
     ${IRRLICHT_XF86VM_LIBRARY}
     ${OPENAL_LIBRARY}
-    ${OPENGL_LIBRARIES}
-    #${ANGELSCRIPT_LIBRARY}
-    #${SQUIRREL_LIBRARIES}
-)
+    ${OPENGL_LIBRARIES})
 #LINUX
-#target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/libsquirrel.a)
-#target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/libsqstdlib.a)
 #target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/libangelscript.a)
 
 #WINDOWS
-#target_link_libraries(supertuxkart ${SQUIRREL_LIBRARIES})
-#target_link_libraries(supertuxkart ${ANGELSCRIPT_LIBRARY})
 target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/dependencies/lib/angelscriptd.lib)   
 
 if(APPLE)
