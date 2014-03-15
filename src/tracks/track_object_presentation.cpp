@@ -716,57 +716,6 @@ void TrackObjectPresentationActionTrigger::onTriggerItemApproached(Item* who)
 
         new TutorialMessageDialog(_("Avoid bananas!"), true);
     }
-    else if (m_action == "haybail")
-    {
-		std::string outputval;
-		//ScriptEngine* scripter = new ScriptEngine();
-		//ScriptEngineOne scripter = ScriptEngineOne::ScriptEngineOne();
-		ScriptEngineOne* scripter = new ScriptEngineOne();
-        m_action_active = false;
-		World::getWorld()->getTrack()->getTrackObjectManager()->disable("hayBail.b3d");
-		//OutputDebugString("activated_");
-		time_t now;
-		time(&now);
-		time_t end;
-		const long double sysTime = time(0);
-		clock_t t1,t2;
-		t1=clock();
-		//code goes here
-		for (int i=0;i<20;i++){
-		//outputval= scripter.doit(m_action);
-		outputval= scripter->doit(m_action);
-		//outputval= scripter->doit();
-				t2=clock();
-		float diffe ((double)t2-(double)t1);
-		std::cout<<diffe<<std::endl;
-		std::cout << "System Time in milliseconds is " << 1000*diffe/CLOCKS_PER_SEC<<std::endl;
-		}
-		std::string output = outputval;
-		time(&end);
-		long double millis = difftime(now,end);
-		std::cout<<"System Time in milliseconds difference is" << millis;
-		long double sysTimeMS = time(0);
-		t2=clock();
-		float diff = ((double)t2-(double)t1);
-		//cout<<diff<<endl;
-		std::cout << "System Time in milliseconds is " << 1000*diff/CLOCKS_PER_SEC;
-		//outputval = "wow";
-		if (outputval=="hwaaatt"){
-		std::cout<<"";
-        //new TutorialMessageDialog(_("Wow! Such Message! Very Script... wow"), true);
-		}
-		else {
-			//new TutorialMessageDialog(_("Avoid bananas!"), true);
-			char print[100];
-			std::string scriptout = scripter->getout();
-			scriptout = outputval;
-			for (int i=0;i<output.size();i++)print[i] = scriptout[i];
-			print[output.size()] = '\0';
-			//OutputDebugString(print);
-			Log::warn("weh",print);
-			if (scripter->five()==5)Log::warn("sumting","very good");
-		}
-    }
     else if (m_action == "tutorial_giftboxes")
     {
         m_action_active = false;
