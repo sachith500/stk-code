@@ -50,35 +50,18 @@ int  CompileScript(asIScriptEngine *engine,std::string scriptName);
 void PrintString(std::string &str);
 void PrintString_Generic(asIScriptGeneric *gen);
 //void timeGetTime_Generic(asIScriptGeneric *gen);
-void LineCallback(asIScriptContext *ctx, DWORD *timeOut);
-void displaymsg();
+//void LineCallback(asIScriptContext *ctx, DWORD *timeOut);
 
 ScriptEngineOne::ScriptEngineOne(){
+
 }
 
-//void displaymsg(char* toDisplay){
-void displaymsg(std::string &toDisplay){
-//void displaymsg(irr::core::stringw toDisplay){
-	//new TutorialMessageDialog(_(toDisplay), true);
-
-	//irr::core::stringw *input = (irr::core::stringw*)gen->GetArgAddress(0);
-	std::cout<<toDisplay;
-}
-// Function wrapper for displaying messages
+// Displays the message specified in displayMessage( string message ) within the script
 void dispmsg(asIScriptGeneric *gen){
-		//	irr::core::stringw w="afda";
-	//	new TutorialMessageDialog(_(w, fire),
-      //                          true);
-	//char ** input = (char **)gen->GetArgAddress(0);irr::core::stringw
 	std::string *input = (std::string*)gen->GetArgAddress(0);
-	//irr::core::stringw *input = (irr::core::stringw*)gen->GetArgAddress(0);
 	irr::core::stringw msgtodisp;
-	for (int i=0;i<(*input).size();i++)msgtodisp += (*input)[i];
-	irr::core::stringw out = irr::core::stringw((*input).c_str());
-	std::cout<<msgtodisp.c_str();
-	//stringw(std::string.c_str())
+	irr::core::stringw out = irr::core::stringw((*input).c_str()); //irr::core::stringw supported by message dialogs
 	new TutorialMessageDialog((out),true); 
-	displaymsg(*input);
 }
 
 std::string ScriptEngineOne::doit(std::string scriptName)
