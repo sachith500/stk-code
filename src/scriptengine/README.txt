@@ -32,6 +32,18 @@ Copy the generated library file (.a or .lib) to stk-code/dependencies/lib
 Comment/Uncomment the lines in CMakeLists in stk-code as necessary (for Linux/Windows)
 
 Build the game.
-Test 
+Test by changing the strings in stk-code/src/tracks/
 
+
+
+Steps for creating new scripts/ actions
+Add an action trigger to the relevant track (Either add it on blender and export it / set it up in scene.xml)
+Create a new script with the defined action scene.xml for the action trigger created. (For example, for tutorial_bananas =>
+
+  <object type="action-trigger" action="tutorial_bananas" distance="7.0" xyz="67.90 0.86 99.49" hpr="0.0 -0.0 0.0" scale="7.00 7.00 7.00"/>
+
+action is "tutorial_bananas"
+so the script it calls is, stk/stk-code/scriptengine/tutorial_bananas.as
+
+Make sure the method onTrigger() is defined. Check tutorial_bananas.as for more details
 
