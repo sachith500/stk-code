@@ -97,6 +97,7 @@ protected:
     RandomGenerator           m_random;
 
     Physics*      m_physics;
+    bool          m_force_disable_fog;
     AbstractKart* m_fastest_kart;
     /** Number of eliminated karts. */
     int         m_eliminated_karts;
@@ -297,7 +298,7 @@ public:
     RaceGUIBase    *getRaceGUI() const { return m_race_gui;}
     // ------------------------------------------------------------------------
     /** Returns the number of karts in the race. */
-    unsigned int    getNumKarts() const { return m_karts.size(); }
+    unsigned int    getNumKarts() const { return (unsigned int) m_karts.size(); }
     // ------------------------------------------------------------------------
     /** Returns the kart with a given world id. */
     AbstractKart       *getKart(int kartId) const {
@@ -345,6 +346,8 @@ public:
     {
         m_clear_color       = color;
     }
+    /** Override track fog value to force disabled */
+    void forceFogDisabled(bool v) { m_force_disable_fog = v; }
     // ------------------------------------------------------------------------
     /** Override if you want to know when a kart presses fire */
     virtual void onFirePressed(Controller* who) {}

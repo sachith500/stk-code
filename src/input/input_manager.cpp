@@ -26,6 +26,8 @@
 #include "guiengine/modaldialog.hpp"
 #include "guiengine/screen.hpp"
 #include "input/device_manager.hpp"
+#include "input/gamepad_device.hpp"
+#include "input/keyboard_device.hpp"
 #include "input/input.hpp"
 #include "karts/controller/controller.hpp"
 #include "karts/abstract_kart.hpp"
@@ -298,7 +300,7 @@ void InputManager::inputSensing(Input::InputType type, int deviceID,
                                 int value)
 {
 #if INPUT_MODE_DEBUG
-    std::cout << "INPUT SENSING... ";
+    Log::info("InputManager::inputSensing", "Start sensing input");
 #endif
 
     // don't store if we're trying to do something like bindings keyboard
@@ -310,7 +312,7 @@ void InputManager::inputSensing(Input::InputType type, int deviceID,
         return;
 
 #if INPUT_MODE_DEBUG
-    std::cout << (store_new ? "storing it" : "ignoring it") << "\n";
+    Log::info("InputManager::inputSensing", store_new ? "storing it" : "ignoring it");
 #endif
 
 
@@ -350,10 +352,9 @@ void InputManager::inputSensing(Input::InputType type, int deviceID,
         break;
     case Input::IT_STICKMOTION:
         {
-        std::cout << "%% storing new axis binding, value=" << value <<
-            " deviceID=" << deviceID << " button=" << button <<
-            " axisDirection=" <<
-            (axisDirection == Input::AD_NEGATIVE ? "-" : "+") << "\n";
+        Log::info("InputManager::inputSensing", "Storing new axis binding, value = %d; "
+            "deviceID = %d; button = %d; axisDirection = %s", value, deviceID, button,
+            axisDirection == Input::AD_NEGATIVE ? "-" : "+");
         // We have to save the direction in which the axis was moved.
         // This is done by storing it as a sign (and since button can
         // be zero, we add one before changing the sign).
@@ -573,8 +574,7 @@ void InputManager::dispatchInput(Input::InputType type, int deviceID,
                     InputDevice *device = NULL;
                     if (type == Input::IT_KEYBOARD)
                     {
-                        //std::cout << "==== New Player Joining with Key " <<
-                        // button << " ====" << std::endl;
+                        //Log::info("InputManager", "New Player Joining with Key %d", button);
                         device = m_device_manager->getKeyboardFromBtnID(button);
                     }
                     else if (type == Input::IT_STICKBUTTON ||
@@ -609,8 +609,8 @@ void InputManager::dispatchInput(Input::InputType type, int deviceID,
 
             if (pk == NULL)
             {
-                std::cerr <<
-                    "Error, trying to process action for an unknown player\n";
+                Log::error("InputManager::dispatchInput", "Trying to process "
+                    "action for an unknown player");
                 return;
             }
 
@@ -637,7 +637,7 @@ void InputManager::dispatchInput(Input::InputType type, int deviceID,
                     type == Input::IT_STICKBUTTON)
                 {
                     GamePadDevice* gp =
-                        getDeviceList()->getGamePadFromIrrID(deviceID);
+                        getDeviceManager()->getGamePadFromIrrID(deviceID);
 
                     if (gp != NULL &&
                         abs(value)>gp->m_deadzone)
@@ -646,7 +646,7 @@ void InputManager::dispatchInput(Input::InputType type, int deviceID,
                         // is not associated to any player
                         GUIEngine::showMessage(
                             _("Ignoring '%s', you needed to join earlier to play!",
-                            irr::core::stringw(gp->m_name.c_str()).c_str())      );
+                            irr::core::stringw(gp->getName().c_str()).c_str())      );
                     }
                 }
                 return;
@@ -700,8 +700,7 @@ void InputManager::dispatchInput(Input::InputType type, int deviceID,
 void InputManager::setMasterPlayerOnly(bool enabled)
 {
 #if INPUT_MODE_DEBUG
-    std::cout <<
-        "====== InputManager::setMasterPlayerOnly(" << enabled << ") ======\n";
+    Log::info("InputManager::setMasterPlayerOnly", enabled ? "enabled" : "disabled");
 #endif
     m_master_player_only = enabled;
 }
@@ -771,7 +770,7 @@ EventPropagation InputManager::input(const SEvent& event)
         }
 
         GamePadDevice* gp =
-            getDeviceList()->getGamePadFromIrrID(event.JoystickEvent.Joystick);
+            getDeviceManager()->getGamePadFromIrrID(event.JoystickEvent.Joystick);
 
         if (gp == NULL)
         {
@@ -808,7 +807,7 @@ EventPropagation InputManager::input(const SEvent& event)
         // Key value, but do have a value defined in the Char field.
         // So to distinguish them (otherwise [] would both be mapped to
         // the same value 0, which means we can't distinguish which key
-        // was actually pressed anymore). We set bit 10 which should
+        // was actually pressed anymore), we set bit 10 which should
         // allow us to distinguish those artifical keys from the
         // 'real' keys.
         const int key = event.KeyInput.Key ? event.KeyInput.Key
@@ -905,7 +904,7 @@ EventPropagation InputManager::input(const SEvent& event)
     // allow typing, and except in modal dialogs in-game)
     // FIXME: 1) that's awful logic 2) that's not what the code below does,
     // events are never blocked in menus
-    if (getDeviceList()->getAssignMode() != NO_ASSIGN &&
+    if (getDeviceManager()->getAssignMode() != NO_ASSIGN &&
         !GUIEngine::isWithinATextBox() &&
         (!GUIEngine::ModalDialog::isADialogActive() &&
         StateManager::get()->getGameState() == GUIEngine::GAME))
@@ -955,7 +954,7 @@ void InputManager::setMode(InputDriverMode new_mode)
     {
         case MENU:
 #if INPUT_MODE_DEBUG
-            std::cout << "====== InputManager::setMode(MENU) ======\n";
+            Log::info("InputManager::setMode", "MENU");
 #endif
             switch (m_mode)
             {
@@ -1017,7 +1016,7 @@ void InputManager::setMode(InputDriverMode new_mode)
             break;
         case INGAME:
 #if INPUT_MODE_DEBUG
-            std::cout << "====== InputManager::setMode(INGAME) ======\n";
+            Log::info("InputManager::setMode", "INGAME");
 #endif
             // We must be in menu mode now in order to switch.
             assert (m_mode == MENU);
@@ -1036,7 +1035,7 @@ void InputManager::setMode(InputDriverMode new_mode)
         case INPUT_SENSE_KEYBOARD:
         case INPUT_SENSE_GAMEPAD:
 #if INPUT_MODE_DEBUG
-            std::cout << "====== InputManager::setMode(INPUT_SENSE_*) ======\n";
+            Log::info("InputManager::setMode", "INPUT_SENSE_*");
 #endif
             // We must be in menu mode now in order to switch.
             assert (m_mode == MENU);
@@ -1050,7 +1049,7 @@ void InputManager::setMode(InputDriverMode new_mode)
             /*
         case LOWLEVEL:
 #if INPUT_MODE_DEBUG
-            std::cout << "====== InputManager::setMode(LOWLEVEL) ======\n";
+            Log::info("InputManager::setMode", "LOWLEVEL");
 #endif
             // We must be in menu mode now in order to switch.
             assert (m_mode == MENU);

@@ -88,7 +88,8 @@ LODNode* ModelDefinitionLoader::instanciateAsLOD(const XMLNode* node, scene::ISc
             a_mesh->grab();
             //cache.push_back(a_mesh);
             irr_driver->grabAllTextures(a_mesh);
-            scene::IMeshSceneNode* scene_node = irr_driver->addMesh(a_mesh);
+            m_track->addCachedMesh(a_mesh);
+            scene::IMeshSceneNode* scene_node = irr_driver->addMesh(a_mesh, group[m].m_model_file);
 
             m_track->handleAnimatedTextures( scene_node, *group[m].m_xml );
 
@@ -120,4 +121,18 @@ void ModelDefinitionLoader::clear()
 scene::IMesh* ModelDefinitionLoader::getFirstMeshFor(const std::string& name)
 {
     return irr_driver->getMesh(m_lod_groups[name][0].m_model_file);
+}
+
+// ----------------------------------------------------------------------------
+
+void ModelDefinitionLoader::cleanLibraryNodesAfterLoad()
+{
+    for (std::map<std::string, XMLNode*>::iterator it = m_library_nodes.begin();
+        it != m_library_nodes.end(); it++)
+    {
+        delete it->second;
+
+        file_manager->popTextureSearchPath();
+        file_manager->popModelSearchPath();
+    }
 }

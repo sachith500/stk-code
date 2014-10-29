@@ -40,6 +40,7 @@ MaterialManager::MaterialManager()
 {
     /* Create list - and default material zero */
 
+    m_default_material = NULL;
     m_materials.reserve(256);
     // We can't call init/loadMaterial here, since the global variable
     // material_manager has not yet been initialised, and
@@ -65,7 +66,9 @@ MaterialManager::~MaterialManager()
 Material* MaterialManager::getMaterialFor(video::ITexture* t,
                                           scene::IMeshBuffer *mb)
 {
-    assert(t != NULL);
+    if (t == NULL)
+        return m_default_material;
+
     const std::string image = StringUtils::getBasename(core::stringc(t->getName()).c_str());
     // Search backward so that temporary (track) textures are found first
     for(int i = (int)m_materials.size()-1; i>=0; i-- )
@@ -76,7 +79,7 @@ Material* MaterialManager::getMaterialFor(video::ITexture* t,
         }
     }   // for i
 
-    return NULL;
+    return m_default_material;
 }
 
 //-----------------------------------------------------------------------------
@@ -95,6 +98,11 @@ void MaterialManager::setAllMaterialFlags(video::ITexture* t,
         return;
     }
 
+    if (m_default_material == NULL)
+        m_default_material = new Material("", false, false, false);
+    m_default_material->setMaterialProperties(&(mb->getMaterial()), mb);
+
+    /*
     // This material does not appear in materials.xml. Set some common flags...
     if (UserConfigParams::m_anisotropic > 0)
     {
@@ -132,7 +140,7 @@ void MaterialManager::setAllMaterialFlags(video::ITexture* t,
 
     //if (UserConfigParams::m_fullscreen_antialiasing)
     //    mb->getMaterial().AntiAliasing = video::EAAM_LINE_SMOOTH;
-
+    */
 }   // setAllMaterialFlags
 
 //-----------------------------------------------------------------------------
@@ -156,7 +164,7 @@ void MaterialManager::adjustForFog(video::ITexture* t,
 
 //-----------------------------------------------------------------------------
 
-void MaterialManager::setAllUntexturedMaterialFlags(scene::IMeshBuffer *mb) const
+void MaterialManager::setAllUntexturedMaterialFlags(scene::IMeshBuffer *mb)
 {
     irr::video::SMaterial& material = mb->getMaterial();
     if (material.getTexture(0) == NULL)
@@ -169,6 +177,10 @@ void MaterialManager::setAllUntexturedMaterialFlags(scene::IMeshBuffer *mb) cons
         material.ColorMaterial = irr::video::ECM_DIFFUSE_AND_AMBIENT;
         material.MaterialType = irr::video::EMT_SOLID;
     }
+
+    if (m_default_material == NULL)
+        m_default_material = new Material("", false, false, false);
+    m_default_material->setMaterialProperties(&(mb->getMaterial()), mb);
 }
 //-----------------------------------------------------------------------------
 int MaterialManager::addEntity(Material *m)
@@ -244,7 +256,7 @@ bool MaterialManager::pushTempMaterial(const XMLNode *root,
         }
         try
         {
-            m_materials.push_back(new Material(node, m_materials.size(), deprecated));
+            m_materials.push_back(new Material(node, deprecated));
         }
         catch(std::exception& e)
         {
@@ -311,7 +323,7 @@ Material *MaterialManager::getMaterial(const std::string& fname,
     }
 
     // Add the new material
-    Material* m=new Material(fname, m_materials.size(), is_full_path, complain_if_not_found);
+    Material* m = new Material(fname, is_full_path, complain_if_not_found);
     m_materials.push_back(m);
     if(make_permanent)
     {
@@ -327,7 +339,7 @@ Material *MaterialManager::getMaterial(const std::string& fname,
  */
 void MaterialManager::makeMaterialsPermanent()
 {
-    m_shared_material_index = m_materials.size();
+    m_shared_material_index = (int) m_materials.size();
 }   // makeMaterialsPermanent
 
 // ----------------------------------------------------------------------------

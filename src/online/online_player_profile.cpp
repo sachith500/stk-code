@@ -29,7 +29,6 @@
 #include "states_screens/online_profile_friends.hpp"
 #include "states_screens/user_screen.hpp"
 #include "states_screens/dialogs/change_password_dialog.hpp"
-#include "states_screens/dialogs/notification_dialog.hpp"
 #include "states_screens/dialogs/user_info_dialog.hpp"
 #include "utils/log.hpp"
 #include "utils/translation.hpp"
@@ -324,6 +323,11 @@ namespace Online
 
         if (!PlayerManager::getCurrentPlayer()->isLoggedIn())
             return;
+        float f;
+        if(getXMLData()->get("menu-polling-interval", &f))
+            RequestManager::get()->setMenuPollingInterval(f);
+        if(getXMLData()->get("game-polling-interval", &f))
+            RequestManager::get()->setGamePollingInterval(f);
 
         if (PlayerManager::getCurrentPlayer()->getProfile()->hasFetchedFriends())
         {
@@ -400,7 +404,7 @@ namespace Online
                     else if(to_notify.size() > 3)
                     {
                         message = _("%d friends are now online.",
-                                    to_notify.size());
+                                    (int)to_notify.size());
                     }
                     MessageQueue::add(MessageQueue::MT_FRIEND, message);
                 }

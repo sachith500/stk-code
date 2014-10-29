@@ -20,6 +20,7 @@
 #include "animations/animation_base.hpp"
 #include "animations/three_d_animation.hpp"
 #include "audio/music_manager.hpp"
+#include "audio/sfx_manager.hpp"
 #include "challenges/unlock_manager.hpp"
 #include "config/player_manager.hpp"
 #include "graphics/camera.hpp"
@@ -59,6 +60,7 @@ CutsceneWorld::CutsceneWorld() : World()
     WorldStatus::setClockMode(CLOCK_NONE);
     m_use_highscores = false;
     m_play_racestart_sounds = false;
+    m_fade_duration = 1.0f;
 }   // CutsceneWorld
 
 //-----------------------------------------------------------------------------
@@ -240,13 +242,13 @@ void CutsceneWorld::update(float dt)
     float fade = 0.0f;
     float fadeIn = -1.0f;
     float fadeOut = -1.0f;
-    if (m_time < 2.0f)
+    if (m_time < m_fade_duration)
     {
-        fadeIn = 1.0f - (float)m_time / 2.0f;
+        fadeIn = 1.0f - (float)m_time / m_fade_duration;
     }
-    if (m_time > m_duration - 2.0f)
+    if (m_time > m_duration - m_fade_duration)
     {
-        fadeOut = (float)(m_time - (m_duration - 2.0f)) / 2.0f;
+        fadeOut = (float)(m_time - (m_duration - m_fade_duration)) / m_fade_duration;
     }
 
     if (fadeIn >= 0.0f && fadeOut >= 0.0f)
@@ -305,14 +307,12 @@ void CutsceneWorld::update(float dt)
             rot2.setPitch(rot2.getPitch() + 90.0f);
             m_camera->setRotation(rot2.toIrrVector());
 
-            sfx_manager->positionListener(m_camera->getAbsolutePosition(),
+            SFXManager::get()->positionListener(m_camera->getAbsolutePosition(),
                                           m_camera->getTarget() -
-                                            m_camera->getAbsolutePosition());
+                                            m_camera->getAbsolutePosition(),
+                                            Vec3(0,1,0));
 
             break;
-            //printf("Camera %f %f %f\n", curr->getNode()->getPosition().X,
-            //                            curr->getNode()->getPosition().Y,
-            //                             curr->getNode()->getPosition().Z);
         }
     }
     std::map<float, std::vector<TrackObject*> >::iterator it;
@@ -409,7 +409,7 @@ void CutsceneWorld::enterRaceOverState()
             GUIEngine::Screen* newStack[] = { mainMenu, credits, NULL };
             race_manager->exitRace();
             StateManager::get()->resetAndSetStack(newStack);
-            StateManager::get()->pushScreen(credits);
+            credits->push();
         }
         // TODO: remove hardcoded knowledge of cutscenes, replace with scripting probably
         else  if (m_parts.size() == 1 && m_parts[0] == "gpwin")
@@ -526,7 +526,7 @@ void CutsceneWorld::enterRaceOverState()
                 KartSelectionScreen* s = OfflineKartSelectionScreen::getInstance();
                 s->setMultiplayer(false);
                 s->setGoToOverworldNext();
-                StateManager::get()->pushScreen( s );
+                s->push();
             }
         }
         // TODO: remove hardcoded knowledge of cutscenes, replace with scripting probably

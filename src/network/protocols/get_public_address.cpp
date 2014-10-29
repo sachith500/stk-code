@@ -30,6 +30,7 @@
 #include <assert.h>
 
 #ifdef __MINGW32__
+#  undef _WIN32_WINNT
 #  define _WIN32_WINNT 0x501
 #endif
 
@@ -111,7 +112,7 @@ void GetPublicAddress::asynchronousUpdate()
         std::vector<std::string> stun_servers = UserConfigParams::m_stun_servers;
 
         RandomGenerator random_gen;
-        int rand_result = random_gen.get(stun_servers.size());
+        int rand_result = random_gen.get((int)stun_servers.size());
         Log::verbose("GetPublicAddress", "Using STUN server %s",
                      stun_servers[rand_result].c_str());
 

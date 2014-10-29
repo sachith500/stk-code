@@ -148,7 +148,9 @@ private:
     
     /** True if fire button was pushed and not released */
     bool         m_fire_clicked;
-
+    
+    /** Counter which is used for displaying wrong way message after a delay */
+    float        m_wrongway_counter;
 
 
     // Bullet physics parameters
@@ -229,7 +231,7 @@ private:
     void          updateEngineSFX();
     void          updateNitro(float dt);
     float         getActualWheelForce();
-    void          crashed(const Material* m, AbstractKart *k);
+    void          playCrashSFX(const Material* m, AbstractKart *k);
     void          loadData(RaceManager::KartType type, bool animatedModel);
 
 public:
@@ -437,6 +439,10 @@ public:
     // ------------------------------------------------------------------------
     /** For debugging only: check if a kart is flying. */
     bool isFlying() const { return m_flying;  }
+    // ------------------------------------------------------------------------
+    /** Counter which is used for displaying wrong way message after a delay */
+    float getWrongwayCounter() { return m_wrongway_counter; }
+    void setWrongwayCounter(float counter) { m_wrongway_counter = counter; }
 };   // Kart
 
 

@@ -108,31 +108,6 @@ enum TypeFBO
     FBO_COUNT
 };
 
-enum QueryPerf
-{
-    Q_SOLID_PASS1,
-    Q_SHADOWS,
-    Q_RSM,
-    Q_RH,
-    Q_GI,
-    Q_ENVMAP,
-    Q_SUN,
-    Q_POINTLIGHTS,
-    Q_SSAO,
-    Q_SOLID_PASS2,
-    Q_TRANSPARENT,
-    Q_PARTICLES,
-    Q_DISPLACEMENT,
-    Q_DOF,
-    Q_GODRAYS,
-    Q_BLOOM,
-    Q_TONEMAP,
-    Q_MOTIONBLUR,
-    Q_MLAA,
-    Q_GUI,
-    Q_LAST
-};
-
 enum TypeRTT
 {
     RTT_TMP1 = 0,
@@ -198,7 +173,7 @@ enum TypeRTT
 class IrrDriver : public IEventReceiver, public NoCopy
 {
 private:
-    int GLMajorVersion, GLMinorVersion;
+    int m_gl_major_version, m_gl_minor_version;
     bool hasVSLayer;
     bool hasBaseInstance;
     bool hasDrawIndirect;
@@ -283,10 +258,10 @@ public:
 
     unsigned getGLSLVersion() const
     {
-        if (GLMajorVersion > 3 || (GLMajorVersion == 3 && GLMinorVersion == 3))
-            return GLMajorVersion * 100 + GLMinorVersion * 10;
-        else if (GLMajorVersion == 3)
-            return 100 + (GLMinorVersion + 3) * 10;
+        if (m_gl_major_version > 3 || (m_gl_major_version == 3 && m_gl_minor_version == 3))
+            return m_gl_major_version * 100 + m_gl_minor_version * 10;
+        else if (m_gl_major_version == 3)
+            return 100 + (m_gl_minor_version + 3) * 10;
         else
             return 120;
     }
@@ -428,6 +403,9 @@ public:
         ~IrrDriver();
     void initDevice();
     void reset();
+    void getOpenGLData(std::string *vendor, std::string *renderer,
+                       std::string *version);
+
     void generateSkyboxCubemap();
     void generateDiffuseCoefficients();
     void renderSkybox(const scene::ICameraSceneNode *camera);
@@ -475,6 +453,7 @@ public:
     scene::IMeshSceneNode*addSphere(float radius,
                  const video::SColor &color=video::SColor(128, 255, 255, 255));
     scene::IMeshSceneNode*addMesh(scene::IMesh *mesh,
+                                  const std::string& debug_name,
                                   scene::ISceneNode *parent=NULL);
     PerCameraNode        *addPerCameraNode(scene::ISceneNode* node,
                                            scene::ICameraSceneNode* cam,
@@ -495,7 +474,7 @@ public:
     void                  removeMeshFromCache(scene::IMesh *mesh);
     void                  removeTexture(video::ITexture *t);
     scene::IAnimatedMeshSceneNode
-                         *addAnimatedMesh(scene::IAnimatedMesh *mesh, scene::ISceneNode* parent=NULL);
+        *addAnimatedMesh(scene::IAnimatedMesh *mesh, const std::string& debug_name, scene::ISceneNode* parent = NULL);
     scene::ICameraSceneNode
                          *addCameraSceneNode();
     Camera               *addCamera(unsigned int index, AbstractKart *kart);

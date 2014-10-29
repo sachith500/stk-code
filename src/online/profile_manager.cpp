@@ -22,9 +22,10 @@
 #include "utils/log.hpp"
 #include "utils/translation.hpp"
 
+#include <algorithm>
+#include <assert.h>
 #include <sstream>
 #include <stdlib.h>
-#include <assert.h>
 
 using namespace Online;
 
@@ -38,7 +39,7 @@ ProfileManager* ProfileManager::m_profile_manager = NULL;
  */
 ProfileManager::ProfileManager()
 {
-    m_max_cache_size = 2;
+    m_max_cache_size = 100;
     m_currently_visiting = NULL;
 }   // ProfileManager
 
@@ -122,18 +123,21 @@ void ProfileManager::addToCache(OnlineProfile * profile)
 void ProfileManager::addDirectToCache(OnlineProfile* profile)
 {
     assert(profile != NULL);
-    if (m_profiles_cache.size() == m_max_cache_size)
+    if (m_profiles_cache.size() >= m_max_cache_size)
     {
-        // We have to replace a cached entry, find one entry that
-        // doesn't have its used bit set
+        // Cache already full, try to find entries that
+        // don't have their used bit set
         ProfilesMap::iterator iter;
         for (iter = m_profiles_cache.begin(); iter != m_profiles_cache.end();)
         {
             if (!iter->second->getCacheBit())
             {
+                updateAllFriendFlags(iter->second);
                 delete iter->second;
-                m_profiles_cache.erase(iter);
-                break;
+                iter = m_profiles_cache.erase(iter);
+                // Keep on deleting till enough space is available.
+                if(m_profiles_cache.size()<m_max_cache_size)
+                    break;
             }
             else
             {
@@ -143,7 +147,6 @@ void ProfileManager::addDirectToCache(OnlineProfile* profile)
     }
 
     m_profiles_cache[profile->getID()] = profile;
-    assert(m_profiles_cache.size() <= m_max_cache_size);
 }   // addDirectToCache
 
 // ------------------------------------------------------------------------
@@ -163,6 +166,44 @@ bool ProfileManager::isInCache(const uint32_t id)
 }   // isInCache
 
 // ------------------------------------------------------------------------
+/** This function is called when the specified profile id is removed from
+ *  cache. It will search all currently cached profiles that have the
+ *  'friends fetched' flag set, and reset that flag if the profile id is
+ *  one of their friends. This fixes the problem that friend lists can
+ *  get shortened if some of their friends are being pushed out of 
+ *  cache. 
+ */
+void ProfileManager::updateFriendFlagsInCache(const ProfilesMap &cache,
+                                              uint32_t profile_id)
+{
+    ProfilesMap::const_iterator i;
+    for(i=cache.begin(); i!=cache.end(); i++)
+    {
+        // Profile has no friends fetched, no need to test
+        if(!(*i).second->hasFetchedFriends()) continue;
+        const OnlineProfile::IDList &friend_list = (*i).second->getFriends();
+        OnlineProfile::IDList::const_iterator frnd;
+        frnd = std::find(friend_list.begin(), friend_list.end(), profile_id);
+        if(frnd!=friend_list.end())
+            (*i).second->unsetHasFetchedFriends();
+    }
+}   // updateFriendFlagsInCache
+
+// ------------------------------------------------------------------------
+/** This function is called when the specified profile is removed from
+ *  cache. It searches through all caches for profiles X, that have the
+ *  given profile as friend, and then reset the 'friends fetched' flag
+ *  in profile X. Otherwise if a profile is pushed out of the cache,
+ *  all friends of this profile in cache will have an incomplete list
+ *  of friends.
+ */
+void ProfileManager::updateAllFriendFlags(const OnlineProfile *profile)
+{
+    updateFriendFlagsInCache(m_profiles_persistent, profile->getID());
+    updateFriendFlagsInCache(m_profiles_cache,      profile->getID());
+}   // updateAllFriendFlags
+
+// ------------------------------------------------------------------------
 /** This function updates the cache bits of all cached entries. It will
 *  set the cache bit of the given profile. Then, if the cachen is full
 *  it will check if there are any entries that don't have the cache bit
@@ -175,7 +216,7 @@ bool ProfileManager::isInCache(const uint32_t id)
 void ProfileManager::updateCacheBits(OnlineProfile * profile)
 {
     profile->setCacheBit(true);
-    if (m_profiles_cache.size() == m_max_cache_size)
+    if (m_profiles_cache.size() >= m_max_cache_size)
     {
         ProfilesMap::iterator iter;
         for (iter = m_profiles_cache.begin();

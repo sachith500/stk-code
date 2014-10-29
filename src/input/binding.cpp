@@ -16,16 +16,18 @@
 //  along with this program; if not, write to the Free Software
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
-#include <SKeyMap.h>
 #include "input/binding.hpp"
+#include "io/xml_node.hpp"
 #include "utils/string_utils.hpp"
 #include "utils/translation.hpp"
 #include "utils/log.hpp"
 
-/** Convert thjis binding to XML attributes. The full XML node is actually
+#include <SKeyMap.h>
+
+/** Convert this binding to XML attributes. The full XML node is actually
  *  written by device_config, so we only have to add the attributes here.
  */
-void Binding::serialize(std::ofstream& stream) const
+void Binding::save(std::ofstream& stream) const
 {
     stream << "id=\""        << m_id        << "\" "
            << "event=\""     << m_type      << "\" "
@@ -37,54 +39,42 @@ void Binding::serialize(std::ofstream& stream) const
         stream << "direction=\"" << m_dir    << "\" ";
         stream << "range=\""     << m_range    << "\" ";
     }
-}   // serialize
+}   // save
 
 // ----------------------------------------------------------------------------
-bool Binding::deserialize(irr::io::IrrXMLReader* xml)
+bool Binding::load(const XMLNode *action)
 {
-    const char *id_string       = xml->getAttributeValue("id");
-    const char *event_string    = xml->getAttributeValue("event");
-    const char *dir_string      = xml->getAttributeValue("direction");
-    const char *range_string    = xml->getAttributeValue("range");
-    const char *character       = xml->getAttributeValue("character");
-
-    // Proceed only if neccesary tags were found
-    if ((id_string == NULL) ||  (event_string == NULL))
+    int n;
+    if(!action->get("id", &m_id) || !action->get("event", &n)  )
     {
         Log::warn("Binding", "No id-string or event-string given - ignored.");
         return false;
     }
+    m_type = (Input::InputType)n;
 
-    // Convert strings to string tags to integer types
-    m_type = (Input::InputType)atoi(event_string);
-    m_id   = atoi(id_string);
-    m_character = character ? atoi(character) : 0;
+    m_character = 0;
+    // XMLNode only supports stringw, not wchar_t*
+    core::stringw s;
+    action->get("character", &s);
+    if(s.size()>0)
+        m_character = s[0];
 
     // If the action is not a stick motion (button or key)
     if (m_type == Input::IT_STICKMOTION)
     {
-        // If the action is a stick motion & a direction is defined
-        if (dir_string == NULL)
+        if(!action->get("direction", &n))
         {
             Log::warn("Binding", "IT_STICKMOTION without direction, ignoring.");
             return false;
         }
-        
-        // If the action is a stick motion & a range is defined
-        if (range_string == NULL)
-        {
-            m_range = Input::AR_HALF;
-        }
-        else
-        {
-            m_range = (Input::AxisRange)atoi(range_string);
-        }
-   
-        m_dir   = (Input::AxisDirection)atoi(dir_string);
+        m_dir = (Input::AxisDirection)n;
+
+        if(!action->get("range", &n)) m_range = Input::AR_HALF;
+        else                          m_range = (Input::AxisRange)n;
 
     }   // if m_type!=stickmotion
     return true;
-}   // deserialize
+}   // load
 
 // ----------------------------------------------------------------------------
 /** Returns a string representing this binding, which can be displayed on the
@@ -163,6 +153,7 @@ irr::core::stringw Binding::getAsString() const
             case irr::KEY_KEY_1      : s = "1"; break;
             case irr::KEY_KEY_2      : s = "2"; break;
             case irr::KEY_KEY_3      : s = "3"; break;
+            case irr::KEY_KEY_4      : s = "4"; break;
             case irr::KEY_KEY_5      : s = "5"; break;
             case irr::KEY_KEY_6      : s = "6"; break;
             case irr::KEY_KEY_7      : s = "7"; break;

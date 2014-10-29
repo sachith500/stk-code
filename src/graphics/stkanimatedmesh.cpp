@@ -4,6 +4,7 @@
 #include <IMaterialRenderer.h>
 #include <ISkinnedMesh.h>
 #include "graphics/irr_driver.hpp"
+#include "graphics/material_manager.hpp"
 #include "config/user_config.hpp"
 #include "modes/world.hpp"
 #include "tracks/track.hpp"
@@ -14,7 +15,7 @@
 using namespace irr;
 
 STKAnimatedMesh::STKAnimatedMesh(irr::scene::IAnimatedMesh* mesh, irr::scene::ISceneNode* parent,
-irr::scene::ISceneManager* mgr, s32 id,
+irr::scene::ISceneManager* mgr, s32 id, const std::string& debug_name,
 const core::vector3df& position,
 const core::vector3df& rotation,
 const core::vector3df& scale) :
@@ -22,6 +23,14 @@ const core::vector3df& scale) :
 {
     isGLInitialized = false;
     isMaterialInitialized = false;
+#ifdef DEBUG
+    m_debug_name = debug_name;
+#endif
+}
+
+STKAnimatedMesh::~STKAnimatedMesh()
+{
+    cleanGLMeshes();
 }
 
 void STKAnimatedMesh::cleanGLMeshes()
@@ -38,15 +47,18 @@ void STKAnimatedMesh::cleanGLMeshes()
         if (mesh.index_buffer)
             glDeleteBuffers(1, &(mesh.index_buffer));
     }
+    GLmeshes.clear();
+    for (unsigned i = 0; i < Material::SHADERTYPE_COUNT; i++)
+        MeshSolidMaterial[i].clearWithoutDeleting();
+    for (unsigned i = 0; i < TM_COUNT; i++)
+        TransparentMesh[i].clearWithoutDeleting();
 }
 
 void STKAnimatedMesh::setMesh(scene::IAnimatedMesh* mesh)
 {
     isGLInitialized = false;
     isMaterialInitialized = false;
-    GLmeshes.clear();
-    for (unsigned i = 0; i < MAT_COUNT; i++)
-        MeshSolidMaterial[i].clearWithoutDeleting();
+    cleanGLMeshes();
     CAnimatedMeshSceneNode::setMesh(mesh);
 }
 
@@ -68,7 +80,7 @@ void STKAnimatedMesh::updateNoGL()
         for (u32 i = 0; i < m->getMeshBufferCount(); ++i)
         {
             scene::IMeshBuffer* mb = Mesh->getMeshBuffer(i);
-            GLmeshes.push_back(allocateMeshBuffer(mb));
+            GLmeshes.push_back(allocateMeshBuffer(mb, m_debug_name));
         }
 
         for (u32 i = 0; i < m->getMeshBufferCount(); ++i)
@@ -87,18 +99,29 @@ void STKAnimatedMesh::updateNoGL()
                 continue;
             }
             GLMesh &mesh = GLmeshes[i];
+            Material* material = material_manager->getMaterialFor(mb->getMaterial().getTexture(0), mb);
+
             if (rnd->isTransparent())
             {
-                TransparentMaterial TranspMat = MaterialTypeToTransparentMaterial(type, MaterialTypeParam);
+                TransparentMaterial TranspMat = MaterialTypeToTransparentMaterial(type, MaterialTypeParam, material);
                 TransparentMesh[TranspMat].push_back(&mesh);
             }
             else
             {
-                MeshMaterial MatType = MaterialTypeToMeshMaterial(type, mb->getVertexType());
+                Material::ShaderType MatType = material->getShaderType();// MaterialTypeToMeshMaterial(type, mb->getVertexType(), material);
                 MeshSolidMaterial[MatType].push_back(&mesh);
             }
         }
         isMaterialInitialized = true;
+    }
+
+    for (u32 i = 0; i < m->getMeshBufferCount(); ++i)
+    {
+        scene::IMeshBuffer* mb = Mesh->getMeshBuffer(i);
+        if (!mb)
+            continue;
+        if (mb)
+            GLmeshes[i].TextureMatrix = getMaterial(i).getTextureMatrix(0);
     }
 }
 
@@ -121,9 +144,16 @@ void STKAnimatedMesh::updateGL()
 
             if (!rnd->isTransparent())
             {
-                MeshMaterial MatType = MaterialTypeToMeshMaterial(type, mb->getVertexType());
+                Material* material = material_manager->getMaterialFor(mb->getMaterial().getTexture(0), mb);
+                Material* material2 = NULL;
+                if (mb->getMaterial().getTexture(1) != NULL)
+                    material2 = material_manager->getMaterialFor(mb->getMaterial().getTexture(1), mb);
+
+                Material::ShaderType MatType = MaterialTypeToMeshMaterial(type, mb->getVertexType(), material, material2);
                 InitTextures(mesh, MatType);
             }
+            else
+                InitTexturesTransparent(mesh);
 
             if (irr_driver->hasARB_base_instance())
             {
@@ -172,8 +202,6 @@ void STKAnimatedMesh::updateGL()
                 glBindBuffer(GL_ARRAY_BUFFER, 0);
             }
         }
-        if (mb)
-            GLmeshes[i].TextureMatrix = getMaterial(i).getTextureMatrix(0);
     }
 
 }

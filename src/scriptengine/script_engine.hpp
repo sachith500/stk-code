@@ -58,22 +58,19 @@ namespace Scripting
             registerStartScriptCallbacks(asIScriptEngine *engine);
     }
         
-class ScriptEngine
-{
+    class ScriptEngine
+    {
     public:
-
-             ScriptEngine();
-             ~ScriptEngine();
-         
-             void runScript(std::string scriptName);
-         
+        ScriptEngine();
+        ~ScriptEngine();
+        
+        void runScript(std::string scriptName);
+        
     private:
         asIScriptEngine *m_engine;
     
-    
         void configureEngine(asIScriptEngine *engine);
         int  compileScript(asIScriptEngine *engine,std::string scriptName);
-
     };   // class ScriptEngine
 
 }

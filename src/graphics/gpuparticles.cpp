@@ -33,6 +33,9 @@ ParticleSystemProxy::ParticleSystemProxy(bool createDefaultEmitter,
     const core::vector3df& scale,
     bool randomize_initial_y) : CParticleSystemSceneNode(createDefaultEmitter, parent, mgr, id, position, rotation, scale), m_alpha_additive(false), m_first_execution(true)
 {
+    if (randomize_initial_y)
+        m_randomize_initial_y = randomize_initial_y;
+
     m_randomize_initial_y = randomize_initial_y;
     size_increase_factor = 0.;
     ParticleParams = NULL;
@@ -77,8 +80,8 @@ void ParticleSystemProxy::setHeightmap(const std::vector<std::vector<float> > &h
 {
     track_x = f1, track_z = f2, track_x_len = f3, track_z_len = f4;
 
-    unsigned width = hm.size();
-    unsigned height = hm[0].size();
+    unsigned width  = (unsigned)hm.size();
+    unsigned height = (unsigned)hm[0].size();
     float *hm_array = new float[width * height];
     for (unsigned i = 0; i < width; i++)
     {
@@ -266,13 +269,13 @@ void ParticleSystemProxy::CommonRenderingVAO(GLuint PositionBuffer)
     glBindBuffer(GL_ARRAY_BUFFER, PositionBuffer);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ParticleData), 0);
-    glVertexAttribDivisor(0, 1);
+    glVertexAttribDivisorARB(0, 1);
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(ParticleData), (GLvoid *)(3 * sizeof(float)));
-    glVertexAttribDivisor(1, 1);
+    glVertexAttribDivisorARB(1, 1);
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, sizeof(ParticleData), (GLvoid *)(7 * sizeof(float)));
-    glVertexAttribDivisor(2, 1);
+    glVertexAttribDivisorARB(2, 1);
 }
 
 void ParticleSystemProxy::AppendQuaternionRenderingVAO(GLuint QuaternionBuffer)
@@ -281,11 +284,11 @@ void ParticleSystemProxy::AppendQuaternionRenderingVAO(GLuint QuaternionBuffer)
     glEnableVertexAttribArray(5);
 
     glVertexAttribPointer(5, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
-    glVertexAttribDivisor(5, 1);
+    glVertexAttribDivisorARB(5, 1);
 
     glEnableVertexAttribArray(6);
     glVertexAttribPointer(6, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (GLvoid *)(3 * sizeof(float)));
-    glVertexAttribDivisor(6, 1);
+    glVertexAttribDivisorARB(6, 1);
 }
 
 void ParticleSystemProxy::CommonSimulationVAO(GLuint position_vbo, GLuint initialValues_vbo)
@@ -350,7 +353,7 @@ void ParticleSystemProxy::drawFlip()
     glBlendFunc(GL_ONE, GL_ONE);
     glUseProgram(ParticleShader::FlipParticleRender::getInstance()->Program);
 
-    ParticleShader::FlipParticleRender::getInstance()->SetTextureUnits(std::vector<GLuint>{ texture, irr_driver->getDepthStencilTexture() });
+    ParticleShader::FlipParticleRender::getInstance()->SetTextureUnits(texture, irr_driver->getDepthStencilTexture());
     ParticleShader::FlipParticleRender::getInstance()->setUniforms();
 
     glBindVertexArray(current_rendering_vao);
@@ -365,7 +368,7 @@ void ParticleSystemProxy::drawNotFlip()
         glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     glUseProgram(ParticleShader::SimpleParticleRender::getInstance()->Program);
 
-    ParticleShader::SimpleParticleRender::getInstance()->SetTextureUnits(std::vector<GLuint>{ texture, irr_driver->getDepthStencilTexture() });
+    ParticleShader::SimpleParticleRender::getInstance()->SetTextureUnits(texture, irr_driver->getDepthStencilTexture());
     video::SColorf ColorFrom = video::SColorf(getColorFrom()[0], getColorFrom()[1], getColorFrom()[2]);
     video::SColorf ColorTo = video::SColorf(getColorTo()[0], getColorTo()[1], getColorTo()[2]);
 
@@ -449,21 +452,4 @@ void ParticleSystemProxy::render() {
     m_first_execution = false;
     simulate();
     draw();
-}
-
-bool ParticleSystemProxy::update()
-{
-    doParticleSystem(os::Timer::getTime());
-    return (IsVisible && (Particles.size() != 0));
-}
-
-void ParticleSystemProxy::OnRegisterSceneNode()
-{
-    doParticleSystem(os::Timer::getTime());
-
-    if (IsVisible && (Particles.size() != 0))
-    {
-        SceneManager->registerNodeForRendering(this, scene::ESNRP_TRANSPARENT_EFFECT);
-        ISceneNode::OnRegisterSceneNode();
-    }
 }

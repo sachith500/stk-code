@@ -69,6 +69,17 @@ void TrackInfoScreen::loadedFromFile()
     m_lap_spinner     = getWidget<SpinnerWidget>("lap-spinner");
     m_ai_kart_spinner = getWidget<SpinnerWidget>("ai-spinner");
     m_reverse         = getWidget<CheckBoxWidget>("reverse");
+    m_reverse->setState(false);
+
+    m_highscore_label = getWidget<LabelWidget>("highscores");
+
+    m_kart_icons[0] = getWidget<IconButtonWidget>("iconscore1");
+    m_kart_icons[1] = getWidget<IconButtonWidget>("iconscore2");
+    m_kart_icons[2] = getWidget<IconButtonWidget>("iconscore3");
+
+    m_highscore_entries[0] = getWidget<LabelWidget>("highscore1");
+    m_highscore_entries[1] = getWidget<LabelWidget>("highscore2");
+    m_highscore_entries[2] = getWidget<LabelWidget>("highscore3");
 }   // loadedFromFile
 
 // ----------------------------------------------------------------------------
@@ -134,6 +145,8 @@ void TrackInfoScreen::init()
     {
         if (UserConfigParams::m_artist_debug_mode)
             m_lap_spinner->setMin(0);
+        else
+            m_lap_spinner->setMin(1);
         m_lap_spinner->setValue(m_track->getActualNumberOfLap());
         race_manager->setNumLaps(m_lap_spinner->getValue());
     }
@@ -174,32 +187,20 @@ void TrackInfoScreen::init()
     {
         m_reverse->setState(race_manager->getReverseTrack());
     }
+    else
+        m_reverse->setState(false);
 
     // ---- High Scores
-    if (has_highscores)
-    {
-        m_kart_icons[0] = getWidget<IconButtonWidget>("iconscore1");
-        m_kart_icons[1] = getWidget<IconButtonWidget>("iconscore2");
-        m_kart_icons[2] = getWidget<IconButtonWidget>("iconscore3");
+    m_highscore_label->setVisible(has_highscores);
 
-        m_highscore_entries[0] = getWidget<LabelWidget>("highscore1");
-        m_highscore_entries[1] = getWidget<LabelWidget>("highscore2");
-        m_highscore_entries[2] = getWidget<LabelWidget>("highscore3");
+    m_kart_icons[0]->setVisible(has_highscores);
+    m_kart_icons[1]->setVisible(has_highscores);
+    m_kart_icons[2]->setVisible(has_highscores);
 
-        updateHighScores();
-    }
-    else
-    {
-        getWidget<IconButtonWidget>("iconscore1")->setVisible(false);
-        getWidget<IconButtonWidget>("iconscore2")->setVisible(false);
-        getWidget<IconButtonWidget>("iconscore3")->setVisible(false);
+    m_highscore_entries[0]->setVisible(has_highscores);
+    m_highscore_entries[1]->setVisible(has_highscores);
+    m_highscore_entries[2]->setVisible(has_highscores);
 
-        getWidget<LabelWidget>("highscores")->setVisible(false);
-        getWidget<LabelWidget>("highscore1")->setVisible(false);
-        getWidget<LabelWidget>("highscore2")->setVisible(false);
-        getWidget<LabelWidget>("highscore3")->setVisible(false);
-    }
-    
     RibbonWidget* bt_start = getWidget<GUIEngine::RibbonWidget>("buttons");
     bt_start->setFocusForPlayer(PLAYER_ID_GAME_MASTER);
 
@@ -215,6 +216,9 @@ TrackInfoScreen::~TrackInfoScreen()
 
 void TrackInfoScreen::updateHighScores()
 {
+    if (!race_manager->modeHasHighscores())
+        return;
+
     std::string game_mode_ident = RaceManager::getIdentOf( race_manager->getMinorMode() );
     const Highscores::HighscoreType type = "HST_" + game_mode_ident;
 
@@ -276,11 +280,13 @@ void TrackInfoScreen::onEnterPressedInternal()
 
     // Create a copy of member variables we still need, since they will
     // not be accessible after dismiss:
-    const int num_laps = race_manager->modeHasLaps() ? m_lap_spinner->getValue() 
+    const int num_laps = race_manager->modeHasLaps() ? m_lap_spinner->getValue()
                                                      : -1;
     const bool reverse_track = m_reverse == NULL ? false
-                                                  : m_reverse->getState();
-    m_track->setActualNumberOfLaps(num_laps);
+                                                 : m_reverse->getState();
+    // Avoid negative lap numbers (after e.g. easter egg mode).
+    if(num_laps>=0)
+        m_track->setActualNumberOfLaps(num_laps);
     race_manager->setReverseTrack(reverse_track);
 
     // Disable accidentally unlocking of a challenge
@@ -311,10 +317,7 @@ void TrackInfoScreen::eventCallback(Widget* widget, const std::string& name,
         race_manager->setReverseTrack(m_reverse->getState());
         // Makes sure the highscores get swapped when clicking the 'reverse'
         // checkbox.
-        if (race_manager->modeHasHighscores())
-        {
-            updateHighScores();
-        }
+        updateHighScores();
     }
     else if (name == "lap-spinner")
     {
@@ -326,7 +329,6 @@ void TrackInfoScreen::eventCallback(Widget* widget, const std::string& name,
     }
     else if (name=="ai-spinner")
     {
-        SpinnerWidget* w = dynamic_cast<SpinnerWidget*>(widget);
         const int num_ai = m_ai_kart_spinner->getValue();
         race_manager->setNumKarts( race_manager->getNumLocalPlayers() + num_ai );
         UserConfigParams::m_num_karts = race_manager->getNumLocalPlayers() + num_ai;
@@ -334,37 +336,3 @@ void TrackInfoScreen::eventCallback(Widget* widget, const std::string& name,
 }   // eventCallback
 
 // ----------------------------------------------------------------------------
-GUIEngine::EventPropagation TrackInfoScreen::filterActions(PlayerAction action,
-                                                           int deviceID,
-                                                           const unsigned int value,
-                                                           Input::InputType type,
-                                                           int playerId)
-{
-    GUIEngine::EventPropagation result = EVENT_LET;
-    RibbonWidget* bt_start = getWidget<GUIEngine::RibbonWidget>("buttons");
-
-    switch (action)
-    {
-    case PA_MENU_LEFT:
-    case PA_MENU_RIGHT:
-    {
-        if (bt_start->isFocusedForPlayer(playerId))
-        {
-            result = EVENT_BLOCK;
-        }
-
-        break;
-    }
-    case PA_MENU_UP:
-    case PA_MENU_DOWN:
-    case PA_MENU_SELECT:
-    case PA_MENU_CANCEL:
-        break;
-    default:
-        break;
-    }
-
-    return result;
-}   // filterActions
-
-// -----------------------------------------------------------------------------

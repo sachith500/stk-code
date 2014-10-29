@@ -22,6 +22,7 @@
 #include "graphics/callbacks.hpp"
 #include "graphics/camera.hpp"
 #include "graphics/glwrap.hpp"
+#include "graphics/2dutils.hpp"
 #include "graphics/hardware_skinning.hpp"
 #include "graphics/lens_flare.hpp"
 #include "graphics/light.hpp"
@@ -34,8 +35,10 @@
 #include "graphics/stkanimatedmesh.hpp"
 #include "graphics/stkbillboard.hpp"
 #include "graphics/stkmeshscenenode.hpp"
+#include "graphics/stkscenemanager.hpp"
 #include "graphics/sun.hpp"
 #include "graphics/rtts.hpp"
+#include "graphics/texturemanager.hpp"
 #include "graphics/water.hpp"
 #include "graphics/wind.hpp"
 #include "guiengine/engine.hpp"
@@ -351,20 +354,22 @@ void IrrDriver::initDevice()
         core::dimension2d<u32> res = core::dimension2du(UserConfigParams::m_width, 
                                                     UserConfigParams::m_height);
         
-        
-        if (modes->getVideoModeCount() > 0)
+        if (UserConfigParams::m_fullscreen)
         {
-            res = modes->getVideoModeResolution(res, res);
-
-            UserConfigParams::m_width = res.Width;
-            UserConfigParams::m_height = res.Height;
-        }
-        else
-        {
-            Log::verbose("irr_driver", "Cannot get information about "
-                         "resolutions. Try to use the default one.");
-            UserConfigParams::m_width = MIN_SUPPORTED_WIDTH;
-            UserConfigParams::m_height = MIN_SUPPORTED_HEIGHT;
+            if (modes->getVideoModeCount() > 0)
+            {
+                res = modes->getVideoModeResolution(res, res);
+    
+                UserConfigParams::m_width = res.Width;
+                UserConfigParams::m_height = res.Height;
+            }
+            else
+            {
+                Log::verbose("irr_driver", "Cannot get information about "
+                             "resolutions. Try to use the default one.");
+                UserConfigParams::m_width = MIN_SUPPORTED_WIDTH;
+                UserConfigParams::m_height = MIN_SUPPORTED_HEIGHT;
+            }
         }
 
         m_device->closeDevice();
@@ -465,14 +470,14 @@ void IrrDriver::initDevice()
     m_gui_env       = m_device->getGUIEnvironment();
     m_video_driver  = m_device->getVideoDriver();
 
-    GLMajorVersion = 2;
-    GLMinorVersion = 1;
+    m_gl_major_version = 2;
+    m_gl_minor_version = 1;
     // Call to glGetIntegerv should not be made if --no-graphics is used
     if(!ProfileWorld::isNoGraphics())
     {
-        glGetIntegerv(GL_MAJOR_VERSION, &GLMajorVersion);
-        glGetIntegerv(GL_MINOR_VERSION, &GLMinorVersion);
-        Log::info("IrrDriver", "OpenGL version: %d.%d", GLMajorVersion, GLMinorVersion);
+        glGetIntegerv(GL_MAJOR_VERSION, &m_gl_major_version);
+        glGetIntegerv(GL_MINOR_VERSION, &m_gl_minor_version);
+        Log::info("IrrDriver", "OpenGL version: %d.%d", m_gl_major_version, m_gl_minor_version);
         Log::info("IrrDriver", "OpenGL vendor: %s", glGetString(GL_VENDOR));
         Log::info("IrrDriver", "OpenGL renderer: %s", glGetString(GL_RENDERER));
         Log::info("IrrDriver", "OpenGL version string: %s", glGetString(GL_VERSION));
@@ -482,7 +487,7 @@ void IrrDriver::initDevice()
         m_need_srgb_workaround = false;
 #ifdef WIN32
         // Fix for Intel Sandy Bridge on Windows which supports GL up to 3.1 only
-        if (strstr((const char *)glGetString(GL_VENDOR), "Intel") != NULL && (GLMajorVersion == 3 && GLMinorVersion == 1))
+        if (strstr((const char *)glGetString(GL_VENDOR), "Intel") != NULL && (m_gl_major_version == 3 && m_gl_minor_version == 1))
             m_need_ubo_workaround = true;
 #endif
         // Fix for Nvidia and instanced RH
@@ -493,8 +498,13 @@ void IrrDriver::initDevice()
         if (strstr((const char *)glGetString(GL_VENDOR), "ATI") != NULL)
             m_need_srgb_workaround = true;
     }
-    m_glsl = (GLMajorVersion > 3 || (GLMajorVersion == 3 && GLMinorVersion >= 1));
+#ifdef WIN32
+    m_glsl = (m_gl_major_version > 3 || (m_gl_major_version == 3 && m_gl_minor_version >= 1));
+#else
+    m_glsl = (m_gl_major_version > 3 || (m_gl_major_version == 3 && m_gl_minor_version >= 1));
+#endif
     initGL();
+    m_sync = 0;
 
     // Parse extensions
     hasVSLayer = false;
@@ -561,8 +571,17 @@ void IrrDriver::initDevice()
         glGenQueries(1, &m_lensflare_query);
         m_query_issued = false;
 
-        scene::IMesh * const sphere = m_scene_manager->getGeometryCreator()->createSphereMesh(1, 16, 16);
-        m_sun_interposer = new STKMeshSceneNode(sphere, m_scene_manager->getRootSceneNode(), NULL, -1);
+        scene::IMesh * sphere = m_scene_manager->getGeometryCreator()->createSphereMesh(1, 16, 16);
+        for (unsigned i = 0; i < sphere->getMeshBufferCount(); ++i)
+        {
+            scene::IMeshBuffer *mb = sphere->getMeshBuffer(i);
+            if (!mb)
+                continue;
+            mb->getMaterial().setTexture(0, getUnicolorTexture(video::SColor(255, 255, 255, 255)));
+            mb->getMaterial().setTexture(1, getUnicolorTexture(video::SColor(0, 0, 0, 0)));
+        }
+        m_sun_interposer = new STKMeshSceneNode(sphere, m_scene_manager->getRootSceneNode(), NULL, -1, "sun_interposer");
+
         m_sun_interposer->grab();
         m_sun_interposer->setParent(NULL);
         m_sun_interposer->setScale(core::vector3df(20));
@@ -651,6 +670,15 @@ void IrrDriver::initDevice()
     m_device->getCursorControl()->setVisible(true);
     m_pointer_shown = true;
 }   // initDevice
+
+//-----------------------------------------------------------------------------
+void IrrDriver::getOpenGLData(std::string *vendor, std::string *renderer,
+                              std::string *version)
+{
+    *vendor   = (char*)glGetString(GL_VENDOR  );
+    *renderer = (char*)glGetString(GL_RENDERER);
+    *version  = (char*)glGetString(GL_VERSION );
+}   // getOpenGLData
 
 //-----------------------------------------------------------------------------
 void IrrDriver::showPointer()
@@ -778,6 +806,12 @@ void IrrDriver::applyResolutionSettings()
     // That's just error prone
     // (we're sure to update main.cpp at some point and forget this one...)
     m_shaders->killShaders();
+    VAOManager::getInstance()->kill();
+    SolidPassCmd::getInstance()->kill();
+    ShadowPassCmd::getInstance()->kill();
+    RSMPassCmd::getInstance()->kill();
+    GlowPassCmd::getInstance()->kill();
+    resetTextureTable();
     // initDevice will drop the current device.
     initDevice();
 
@@ -936,22 +970,36 @@ void IrrDriver::setAllMaterialFlags(scene::IMesh *mesh) const
     for(unsigned int i=0; i<n; i++)
     {
         scene::IMeshBuffer *mb = mesh->getMeshBuffer(i);
-        video::SMaterial &irr_material=mb->getMaterial();
-        video::ITexture* t=irr_material.getTexture(0);
-        if(t) material_manager->setAllMaterialFlags(t, mb);
+        video::SMaterial &irr_material = mb->getMaterial();
 
         // special case : for splatting, the main material is on layer 1.
         // it was done this way to provide a fallback for computers
         // where shaders are not supported
-        t = irr_material.getTexture(1);
-        if (t)
+        video::ITexture* t2 = irr_material.getTexture(1);
+        bool is_splatting = false;
+        if (t2)
         {
-            Material* mat = material_manager->getMaterialFor(t, mb);
+            Material* mat = material_manager->getMaterialFor(t2, mb);
             if (mat != NULL && mat->getShaderType() == Material::SHADERTYPE_SPLATTING)
-                material_manager->setAllMaterialFlags(t, mb);
+            {
+                material_manager->setAllMaterialFlags(t2, mb);
+                is_splatting = true;
+            }
         }
 
-        material_manager->setAllUntexturedMaterialFlags(mb);
+        if (!is_splatting)
+        {
+            video::ITexture* t = irr_material.getTexture(0);
+            if (t)
+            {
+                material_manager->setAllMaterialFlags(t, mb);
+            }
+            else
+            {
+                material_manager->setAllUntexturedMaterialFlags(mb);
+            }
+        }
+        
     }  // for i<getMeshBufferCount()
 }   // setAllMaterialFlags
 
@@ -1038,6 +1086,7 @@ scene::IParticleSystemSceneNode *IrrDriver::addParticleNode(bool default_emitter
  *  \param mesh The mesh to add.
  */
 scene::IMeshSceneNode *IrrDriver::addMesh(scene::IMesh *mesh,
+                                          const std::string& debug_name,
                                           scene::ISceneNode *parent)
 {
     if (!isGLSL())
@@ -1046,7 +1095,7 @@ scene::IMeshSceneNode *IrrDriver::addMesh(scene::IMesh *mesh,
     if (!parent)
       parent = m_scene_manager->getRootSceneNode();
 
-    scene::IMeshSceneNode* node = new STKMeshSceneNode(mesh, parent, m_scene_manager, -1);
+    scene::IMeshSceneNode* node = new STKMeshSceneNode(mesh, parent, m_scene_manager, -1, debug_name);
     node->drop();
 
     return node;
@@ -1222,21 +1271,25 @@ void IrrDriver::removeTexture(video::ITexture *t)
 /** Adds an animated mesh to the scene.
  *  \param mesh The animated mesh to add.
  */
-scene::IAnimatedMeshSceneNode *IrrDriver::addAnimatedMesh(scene::IAnimatedMesh *mesh, scene::ISceneNode* parent)
+scene::IAnimatedMeshSceneNode *IrrDriver::addAnimatedMesh(scene::IAnimatedMesh *mesh,
+    const std::string& debug_name, scene::ISceneNode* parent)
 {
     if (!isGLSL())
+    {
         return m_scene_manager->addAnimatedMeshSceneNode(mesh, parent, -1,
-                                                     core::vector3df(0,0,0),
-                                                     core::vector3df(0,0,0),
-                                                     core::vector3df(1,1,1),
-                                                     /*addIfMeshIsZero*/true);
+            core::vector3df(0, 0, 0),
+            core::vector3df(0, 0, 0),
+            core::vector3df(1, 1, 1),
+            /*addIfMeshIsZero*/true);
+    }
 
-      if (!parent)
-         parent = m_scene_manager->getRootSceneNode();
-      scene::IAnimatedMeshSceneNode* node =
-         new STKAnimatedMesh(mesh, parent, m_scene_manager, -1, core::vector3df(0,0,0), core::vector3df(0,0,0), core::vector3df(1,1,1));
-      node->drop();
-      return node;
+    if (!parent)
+        parent = m_scene_manager->getRootSceneNode();
+    scene::IAnimatedMeshSceneNode* node =
+        new STKAnimatedMesh(mesh, parent, m_scene_manager, -1, debug_name,
+        core::vector3df(0, 0, 0), core::vector3df(0, 0, 0), core::vector3df(1, 1, 1));
+    node->drop();
+    return node;
 }   // addAnimatedMesh
 
 // ----------------------------------------------------------------------------
@@ -2241,7 +2294,7 @@ void IrrDriver::RTTProvider::setupRTTScene(PtrVector<scene::IMesh, REF>& mesh,
             node->setAnimationSpeed(0);
             node->updateAbsolutePosition();
             node->setScale( mesh_scale[n].toIrrVector() );
-            //std::cout << "(((( set frame " << model_frames[n] << " ))))\n";
+            //Log::info("RTTProvider::setupRTTScene", "Set frame %d", model_frames[n]);
         }
     }
 
@@ -2460,7 +2513,6 @@ scene::ISceneNode *IrrDriver::addLight(const core::vector3df &pos, float energy,
             m_suncam->updateAbsolutePosition();
 
             ((WaterShaderProvider *) m_shaders->m_callbacks[ES_WATER])->setSunPosition(pos);
-            ((SkyboxProvider *) m_shaders->m_callbacks[ES_SKYBOX])->setSunPosition(pos);
         }
 
         return light;
@@ -2477,7 +2529,7 @@ scene::ISceneNode *IrrDriver::addLight(const core::vector3df &pos, float energy,
 void IrrDriver::clearLights()
 {
     u32 i;
-    const u32 max = m_lights.size();
+    const u32 max = (int)m_lights.size();
     for (i = 0; i < max; i++)
     {
         m_lights[i]->drop();

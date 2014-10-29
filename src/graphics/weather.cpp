@@ -34,12 +34,12 @@ Weather::Weather(bool lightning, std::string sound)
     
     if (m_lightning)
     {
-        m_thunder_sound = sfx_manager->createSoundSource("thunder");        
+        m_thunder_sound = SFXManager::get()->createSoundSource("thunder");        
     }
 
     if (sound != "")
     {
-        m_weather_sound = sfx_manager->createSoundSource(sound);
+        m_weather_sound = SFXManager::get()->createSoundSource(sound);
     }
 
     RandomGenerator g;
@@ -51,11 +51,11 @@ Weather::Weather(bool lightning, std::string sound)
 Weather::~Weather()
 {
     if (m_thunder_sound != NULL) 
-        sfx_manager->deleteSFX(m_thunder_sound);
+        m_thunder_sound->deleteSFX();
         
     if (m_weather_sound != NULL) 
-        sfx_manager->deleteSFX(m_weather_sound);
-}
+        m_weather_sound->deleteSFX();
+}   // ~Weather
 
 // ----------------------------------------------------------------------------
 

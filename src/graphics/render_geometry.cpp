@@ -2,40 +2,22 @@
 
 #include "config/user_config.hpp"
 #include "graphics/callbacks.hpp"
-#include "graphics/camera.hpp"
 #include "graphics/glwrap.hpp"
-#include "graphics/lens_flare.hpp"
-#include "graphics/light.hpp"
-#include "graphics/lod_node.hpp"
-#include "graphics/material_manager.hpp"
-#include "graphics/particle_kind_manager.hpp"
-#include "graphics/per_camera_node.hpp"
 #include "graphics/post_processing.hpp"
-#include "graphics/referee.hpp"
 #include "graphics/rtts.hpp"
-#include "graphics/screenquad.hpp"
 #include "graphics/shaders.hpp"
-#include "graphics/stkmeshscenenode.hpp"
-#include "graphics/wind.hpp"
-#include "io/file_manager.hpp"
-#include "items/item.hpp"
-#include "items/item_manager.hpp"
 #include "modes/world.hpp"
-#include "physics/physics.hpp"
-#include "tracks/track.hpp"
-#include "utils/constants.hpp"
-#include "utils/helpers.hpp"
 #include "utils/log.hpp"
 #include "utils/profiler.hpp"
 #include "utils/tuple.hpp"
 #include "stkscenemanager.hpp"
+#include "utils/profiler.hpp"
 
-#include <algorithm>
+#include <S3DVertex.h>
 
 /**
 \page render_geometry Geometry Rendering Overview
 
-/**
 \section adding_material Adding a solid material
 
 You need to consider twice before adding a new material : in the worst case a material requires 8 shaders :
@@ -76,6 +58,207 @@ layout(location = 5) in vec3 Tangent;
 layout(location = 6) in vec3 Bitangent;
 
 */
+
+struct DefaultMaterial
+{
+    typedef MeshShader::InstancedObjectPass1Shader InstancedFirstPassShader;
+    typedef MeshShader::InstancedObjectPass2Shader InstancedSecondPassShader;
+    typedef MeshShader::InstancedShadowShader InstancedShadowPassShader;
+    typedef MeshShader::InstancedRSMShader InstancedRSMShader;
+    typedef ListInstancedMatDefault InstancedList;
+    typedef MeshShader::ObjectPass1Shader FirstPassShader;
+    typedef MeshShader::ObjectPass2Shader SecondPassShader;
+    typedef MeshShader::ShadowShader ShadowPassShader;
+    typedef MeshShader::RSMShader RSMShader;
+    typedef ListMatDefault List;
+    static const enum video::E_VERTEX_TYPE VertexType = video::EVT_STANDARD;
+    static const enum Material::ShaderType MaterialType = Material::SHADERTYPE_SOLID;
+    static const enum InstanceType Instance = InstanceTypeDualTex;
+    static const STK::Tuple<size_t> FirstPassTextures;
+    static const STK::Tuple<size_t, size_t> SecondPassTextures;
+    static const STK::Tuple<> ShadowTextures;
+    static const STK::Tuple<size_t> RSMTextures;
+};
+
+const STK::Tuple<size_t> DefaultMaterial::FirstPassTextures = STK::Tuple<size_t>(1);
+const STK::Tuple<size_t, size_t> DefaultMaterial::SecondPassTextures = STK::Tuple<size_t, size_t>(0, 1);
+const STK::Tuple<> DefaultMaterial::ShadowTextures;
+const STK::Tuple<size_t> DefaultMaterial::RSMTextures = STK::Tuple<size_t>(0);
+
+struct AlphaRef
+{
+    typedef MeshShader::InstancedObjectRefPass1Shader InstancedFirstPassShader;
+    typedef MeshShader::InstancedObjectRefPass2Shader InstancedSecondPassShader;
+    typedef MeshShader::InstancedRefShadowShader InstancedShadowPassShader;
+    typedef MeshShader::InstancedRSMShader InstancedRSMShader;
+    typedef ListInstancedMatAlphaRef InstancedList;
+    typedef MeshShader::ObjectRefPass1Shader FirstPassShader;
+    typedef MeshShader::ObjectRefPass2Shader SecondPassShader;
+    typedef MeshShader::RefShadowShader ShadowPassShader;
+    typedef MeshShader::RSMShader RSMShader;
+    typedef ListMatAlphaRef List;
+    static const enum video::E_VERTEX_TYPE VertexType = video::EVT_STANDARD;
+    static const enum Material::ShaderType MaterialType = Material::SHADERTYPE_ALPHA_TEST;
+    static const enum InstanceType Instance = InstanceTypeDualTex;
+    static const STK::Tuple<size_t, size_t> FirstPassTextures;
+    static const STK::Tuple<size_t, size_t> SecondPassTextures;
+    static const STK::Tuple<size_t> ShadowTextures;
+    static const STK::Tuple<size_t> RSMTextures;
+};
+
+const STK::Tuple<size_t, size_t> AlphaRef::FirstPassTextures = STK::Tuple<size_t, size_t>(0, 1);
+const STK::Tuple<size_t, size_t> AlphaRef::SecondPassTextures = STK::Tuple<size_t, size_t>(0, 1);
+const STK::Tuple<size_t> AlphaRef::ShadowTextures = STK::Tuple<size_t>(0);
+const STK::Tuple<size_t> AlphaRef::RSMTextures = STK::Tuple<size_t>(0);
+
+struct SphereMap
+{
+    typedef MeshShader::InstancedObjectPass1Shader InstancedFirstPassShader;
+    typedef MeshShader::InstancedSphereMapShader InstancedSecondPassShader;
+    typedef MeshShader::InstancedShadowShader InstancedShadowPassShader;
+    typedef MeshShader::InstancedRSMShader InstancedRSMShader;
+    typedef ListInstancedMatSphereMap InstancedList;
+    typedef MeshShader::ObjectPass1Shader FirstPassShader;
+    typedef MeshShader::SphereMapShader SecondPassShader;
+    typedef MeshShader::ShadowShader ShadowPassShader;
+    typedef MeshShader::RSMShader RSMShader;
+    typedef ListMatSphereMap List;
+    static const enum video::E_VERTEX_TYPE VertexType = video::EVT_STANDARD;
+    static const enum Material::ShaderType MaterialType = Material::SHADERTYPE_SPHERE_MAP;
+    static const enum InstanceType Instance = InstanceTypeDualTex;
+    static const STK::Tuple<size_t> FirstPassTextures;
+    static const STK::Tuple<size_t> SecondPassTextures;
+    static const STK::Tuple<> ShadowTextures;
+    static const STK::Tuple<size_t> RSMTextures;
+};
+
+const STK::Tuple<size_t> SphereMap::FirstPassTextures = STK::Tuple<size_t>(1);
+const STK::Tuple<size_t> SphereMap::SecondPassTextures = STK::Tuple<size_t>(0);
+const STK::Tuple<> SphereMap::ShadowTextures;
+const STK::Tuple<size_t> SphereMap::RSMTextures = STK::Tuple<size_t>(0);
+
+struct UnlitMat
+{
+    typedef MeshShader::InstancedObjectRefPass1Shader InstancedFirstPassShader;
+    typedef MeshShader::InstancedObjectUnlitShader InstancedSecondPassShader;
+    typedef MeshShader::InstancedRefShadowShader InstancedShadowPassShader;
+    typedef MeshShader::InstancedRSMShader InstancedRSMShader;
+    typedef ListInstancedMatUnlit InstancedList;
+    typedef MeshShader::ObjectRefPass1Shader FirstPassShader;
+    typedef MeshShader::ObjectUnlitShader SecondPassShader;
+    typedef MeshShader::RefShadowShader ShadowPassShader;
+    typedef MeshShader::RSMShader RSMShader;
+    typedef ListMatUnlit List;
+    static const enum video::E_VERTEX_TYPE VertexType = video::EVT_STANDARD;
+    static const enum Material::ShaderType MaterialType = Material::SHADERTYPE_SOLID_UNLIT;
+    static const enum InstanceType Instance = InstanceTypeDualTex;
+    static const STK::Tuple<size_t, size_t> FirstPassTextures;
+    static const STK::Tuple<size_t> SecondPassTextures;
+    static const STK::Tuple<size_t> ShadowTextures;
+    static const STK::Tuple<size_t> RSMTextures;
+};
+
+const STK::Tuple<size_t, size_t> UnlitMat::FirstPassTextures = STK::Tuple<size_t, size_t>(0, 1);
+const STK::Tuple<size_t> UnlitMat::SecondPassTextures = STK::Tuple<size_t>(0);
+const STK::Tuple<size_t> UnlitMat::ShadowTextures = STK::Tuple<size_t>(0);
+const STK::Tuple<size_t> UnlitMat::RSMTextures = STK::Tuple<size_t>(0);
+
+struct GrassMat
+{
+    typedef MeshShader::InstancedGrassPass1Shader InstancedFirstPassShader;
+    typedef MeshShader::InstancedGrassPass2Shader InstancedSecondPassShader;
+    typedef MeshShader::InstancedGrassShadowShader InstancedShadowPassShader;
+    typedef MeshShader::InstancedRSMShader InstancedRSMShader;
+    typedef ListInstancedMatGrass InstancedList;
+    typedef MeshShader::GrassPass1Shader FirstPassShader;
+    typedef MeshShader::GrassPass2Shader SecondPassShader;
+    typedef MeshShader::GrassShadowShader ShadowPassShader;
+    typedef MeshShader::RSMShader RSMShader;
+    typedef ListMatGrass List;
+    static const enum video::E_VERTEX_TYPE VertexType = video::EVT_STANDARD;
+    static const enum Material::ShaderType MaterialType = Material::SHADERTYPE_VEGETATION;
+    static const enum InstanceType Instance = InstanceTypeDualTex;
+    static const STK::Tuple<size_t, size_t> FirstPassTextures;
+    static const STK::Tuple<size_t, size_t> SecondPassTextures;
+    static const STK::Tuple<size_t> ShadowTextures;
+    static const STK::Tuple<size_t> RSMTextures;
+};
+
+const STK::Tuple<size_t, size_t> GrassMat::FirstPassTextures = STK::Tuple<size_t, size_t>(0, 1);
+const STK::Tuple<size_t, size_t> GrassMat::SecondPassTextures = STK::Tuple<size_t, size_t>(0, 1);
+const STK::Tuple<size_t> GrassMat::ShadowTextures = STK::Tuple<size_t>(0);
+const STK::Tuple<size_t> GrassMat::RSMTextures = STK::Tuple<size_t>(0);
+
+struct NormalMat
+{
+    typedef MeshShader::InstancedNormalMapShader InstancedFirstPassShader;
+    typedef MeshShader::InstancedObjectPass2Shader InstancedSecondPassShader;
+    typedef MeshShader::InstancedShadowShader InstancedShadowPassShader;
+    typedef MeshShader::InstancedRSMShader InstancedRSMShader;
+    typedef ListInstancedMatNormalMap InstancedList;
+    typedef MeshShader::NormalMapShader FirstPassShader;
+    typedef MeshShader::ObjectPass2Shader SecondPassShader;
+    typedef MeshShader::ShadowShader ShadowPassShader;
+    typedef MeshShader::RSMShader RSMShader;
+    typedef ListMatNormalMap List;
+    static const enum video::E_VERTEX_TYPE VertexType = video::EVT_TANGENTS;
+    static const enum Material::ShaderType MaterialType = Material::SHADERTYPE_NORMAL_MAP;
+    static const enum InstanceType Instance = InstanceTypeThreeTex;
+    static const STK::Tuple<size_t, size_t> FirstPassTextures;
+    static const STK::Tuple<size_t, size_t> SecondPassTextures;
+    static const STK::Tuple<> ShadowTextures;
+    static const STK::Tuple<size_t> RSMTextures;
+};
+
+const STK::Tuple<size_t, size_t> NormalMat::FirstPassTextures = STK::Tuple<size_t, size_t>(2, 1);
+const STK::Tuple<size_t, size_t> NormalMat::SecondPassTextures = STK::Tuple<size_t, size_t>(0, 1);
+const STK::Tuple<> NormalMat::ShadowTextures;
+const STK::Tuple<size_t> NormalMat::RSMTextures = STK::Tuple<size_t>(0);
+
+struct DetailMat
+{
+    typedef MeshShader::InstancedObjectPass1Shader InstancedFirstPassShader;
+    typedef MeshShader::InstancedDetailledObjectPass2Shader InstancedSecondPassShader;
+    typedef MeshShader::InstancedShadowShader InstancedShadowPassShader;
+    typedef MeshShader::InstancedRSMShader InstancedRSMShader;
+    typedef ListInstancedMatDetails InstancedList;
+    typedef MeshShader::ObjectPass1Shader FirstPassShader;
+    typedef MeshShader::DetailledObjectPass2Shader SecondPassShader;
+    typedef MeshShader::ShadowShader ShadowPassShader;
+    typedef MeshShader::RSMShader RSMShader;
+    typedef ListMatDetails List;
+    static const enum video::E_VERTEX_TYPE VertexType = video::EVT_2TCOORDS;
+    static const enum Material::ShaderType MaterialType = Material::SHADERTYPE_DETAIL_MAP;
+    static const enum InstanceType Instance = InstanceTypeThreeTex;
+    static const STK::Tuple<size_t> FirstPassTextures;
+    static const STK::Tuple<size_t, size_t, size_t> SecondPassTextures;
+    static const STK::Tuple<> ShadowTextures;
+    static const STK::Tuple<size_t> RSMTextures;
+};
+
+const STK::Tuple<size_t> DetailMat::FirstPassTextures = STK::Tuple<size_t>(1);
+const STK::Tuple<size_t, size_t, size_t> DetailMat::SecondPassTextures = STK::Tuple<size_t, size_t, size_t>(0, 2, 1);
+const STK::Tuple<> DetailMat::ShadowTextures;
+const STK::Tuple<size_t> DetailMat::RSMTextures = STK::Tuple<size_t>(0);
+
+struct SplattingMat
+{
+    typedef MeshShader::ObjectPass1Shader FirstPassShader;
+    typedef MeshShader::SplattingShader SecondPassShader;
+    typedef MeshShader::ShadowShader ShadowPassShader;
+    typedef MeshShader::SplattingRSMShader RSMShader;
+    typedef ListMatSplatting List;
+    static const enum video::E_VERTEX_TYPE VertexType = video::EVT_2TCOORDS;
+    static const STK::Tuple<size_t> FirstPassTextures;
+    static const STK::Tuple<size_t, size_t, size_t, size_t, size_t> SecondPassTextures;
+    static const STK::Tuple<> ShadowTextures;
+    static const STK::Tuple<size_t, size_t, size_t, size_t, size_t> RSMTextures;
+};
+
+const STK::Tuple<size_t> SplattingMat::FirstPassTextures = STK::Tuple<size_t>(6);
+const STK::Tuple<size_t, size_t, size_t, size_t, size_t> SplattingMat::SecondPassTextures = STK::Tuple<size_t, size_t, size_t, size_t, size_t>(1, 2, 3, 4, 5);
+const STK::Tuple<> SplattingMat::ShadowTextures;
+const STK::Tuple<size_t, size_t, size_t, size_t, size_t> SplattingMat::RSMTextures = STK::Tuple<size_t, size_t, size_t, size_t, size_t>(1, 2, 3, 4, 5);
 
 namespace RenderGeometry
 {
@@ -133,7 +316,7 @@ void draw(const T *Shader, const GLMesh *mesh, uniforms... Args)
     size_t count = mesh->IndexCount;
 
     Shader->setUniforms(Args...);
-    glDrawElementsBaseVertex(ptype, count, itype, (GLvoid *)mesh->vaoOffset, mesh->vaoBaseVertex);
+    glDrawElementsBaseVertex(ptype, (int)count, itype, (GLvoid *)mesh->vaoOffset, (int)mesh->vaoBaseVertex);
 }
 
 template<int...List>
@@ -159,13 +342,76 @@ struct custom_unroll_args<N, List...>
     }
 };
 
-
-template<typename Shader, enum E_VERTEX_TYPE VertexType, int ...List, typename... TupleType>
-void renderMeshes1stPass(const std::vector<TexUnit> &TexUnits, std::vector<STK::Tuple<TupleType...> > &meshes)
+template<typename T, int N>
+struct TexExpander_impl
 {
-    glUseProgram(Shader::getInstance()->Program);
+    template<typename...TupleArgs, typename... Args>
+    static void ExpandTex(GLMesh &mesh, const STK::Tuple<TupleArgs...> &TexSwizzle, Args... args)
+    {
+        size_t idx = STK::tuple_get<sizeof...(TupleArgs) - N>(TexSwizzle);
+        TexExpander_impl<T, N - 1>::template ExpandTex(mesh, TexSwizzle, args..., getTextureGLuint(mesh.textures[idx]));
+    }
+};
+
+template<typename T>
+struct TexExpander_impl<T, 0>
+{
+    template<typename...TupleArgs, typename... Args>
+    static void ExpandTex(GLMesh &mesh, const STK::Tuple<TupleArgs...> &TexSwizzle, Args... args)
+    {
+        T::getInstance()->SetTextureUnits(args...);
+    }
+};
+
+template<typename T>
+struct TexExpander
+{
+    template<typename...TupleArgs, typename... Args>
+    static void ExpandTex(GLMesh &mesh, const STK::Tuple<TupleArgs...> &TexSwizzle, Args... args)
+    {
+        TexExpander_impl<T, sizeof...(TupleArgs)>::ExpandTex(mesh, TexSwizzle, args...);
+    }
+};
+
+
+template<typename T, int N>
+struct HandleExpander_impl
+{
+    template<typename...TupleArgs, typename... Args>
+    static void Expand(uint64_t *TextureHandles, const STK::Tuple<TupleArgs...> &TexSwizzle, Args... args)
+    {
+        size_t idx = STK::tuple_get<sizeof...(TupleArgs)-N>(TexSwizzle);
+        HandleExpander_impl<T, N - 1>::template Expand(TextureHandles, TexSwizzle, args..., TextureHandles[idx]);
+    }
+};
+
+template<typename T>
+struct HandleExpander_impl<T, 0>
+{
+    template<typename...TupleArgs, typename... Args>
+    static void Expand(uint64_t *TextureHandles, const STK::Tuple<TupleArgs...> &TexSwizzle, Args... args)
+    {
+        T::getInstance()->SetTextureHandles(args...);
+    }
+};
+
+template<typename T>
+struct HandleExpander
+{
+    template<typename...TupleArgs, typename... Args>
+    static void Expand(uint64_t *TextureHandles, const STK::Tuple<TupleArgs...> &TexSwizzle, Args... args)
+    {
+        HandleExpander_impl<T, sizeof...(TupleArgs)>::Expand(TextureHandles, TexSwizzle, args...);
+    }
+};
+
+template<typename T, int ...List>
+void renderMeshes1stPass()
+{
+    auto &meshes = T::List::getInstance()->SolidPass;
+    glUseProgram(T::FirstPassShader::getInstance()->Program);
     if (irr_driver->hasARB_base_instance())
-        glBindVertexArray(VAOManager::getInstance()->getVAO(VertexType));
+        glBindVertexArray(VAOManager::getInstance()->getVAO(T::VertexType));
     for (unsigned i = 0; i < meshes.size(); i++)
     {
         std::vector<GLuint> Textures;
@@ -173,14 +419,7 @@ void renderMeshes1stPass(const std::vector<TexUnit> &TexUnits, std::vector<STK::
         GLMesh &mesh = *(STK::tuple_get<0>(meshes.at(i)));
         if (!irr_driver->hasARB_base_instance())
             glBindVertexArray(mesh.vao);
-        for (unsigned j = 0; j < TexUnits.size(); j++)
-        {
-            if (UserConfigParams::m_azdo)
-                Handles.push_back(mesh.TextureHandles[TexUnits[j].m_id]);
-            else
-                Textures.push_back(getTextureGLuint(mesh.textures[TexUnits[j].m_id]));
-        }
-        if (mesh.VAOType != VertexType)
+        if (mesh.VAOType != T::VertexType)
         {
 #ifdef DEBUG
             Log::error("Materials", "Wrong vertex Type associed to pass 1 (hint texture : %s)", mesh.textures[0]->getName().getPath().c_str());
@@ -189,46 +428,46 @@ void renderMeshes1stPass(const std::vector<TexUnit> &TexUnits, std::vector<STK::
         }
 
         if (UserConfigParams::m_azdo)
-            Shader::getInstance()->SetTextureHandles(Handles);
+            HandleExpander<typename T::FirstPassShader>::template Expand(mesh.TextureHandles, T::FirstPassTextures);
         else
-            Shader::getInstance()->SetTextureUnits(Textures);
-        custom_unroll_args<List...>::template exec(Shader::getInstance(), meshes.at(i));
+            TexExpander<typename T::FirstPassShader>::template ExpandTex(mesh, T::FirstPassTextures);
+        custom_unroll_args<List...>::template exec(T::FirstPassShader::getInstance(), meshes.at(i));
     }
 }
 
-template<typename Shader, MeshMaterial Mat, video::E_VERTEX_TYPE VT, typename...Args>
-void renderInstancedMeshes1stPass(const std::vector<TexUnit> &TexUnits, std::vector<GLMesh *> &meshes, Args...args)
+template<typename T, typename...Args>
+void renderInstancedMeshes1stPass(Args...args)
 {
-    glUseProgram(Shader::getInstance()->Program);
-    glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(VT, InstanceTypeDefault));
+    std::vector<GLMesh *> &meshes = T::InstancedList::getInstance()->SolidPass;
+    glUseProgram(T::InstancedFirstPassShader::getInstance()->Program);
+    glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(T::VertexType, T::Instance));
     for (unsigned i = 0; i < meshes.size(); i++)
     {
         std::vector<GLuint> Textures;
         GLMesh *mesh = meshes[i];
 #ifdef DEBUG
-        if (mesh->VAOType != VT)
-            Log::error("RenderGeometry", "Wrong instanced vertex format");
+        if (mesh->VAOType != T::VertexType)
+            Log::error("RenderGeometry", "Wrong instanced vertex format (hint : %s)", 
+                        mesh->textures[0]->getName().getPath().c_str());
 #endif
-        for (unsigned j = 0; j < TexUnits.size(); j++)
-            Textures.push_back(getTextureGLuint(mesh->textures[TexUnits[j].m_id]));
-        Shader::getInstance()->SetTextureUnits(Textures);
+        TexExpander<typename T::InstancedFirstPassShader>::template ExpandTex(*mesh, T::FirstPassTextures);
 
-        Shader::getInstance()->setUniforms(args...);
-        glDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_SHORT, (const void*)((SolidPassCmd::getInstance()->Offset[Mat] + i) * sizeof(DrawElementsIndirectCommand)));
+        T::InstancedFirstPassShader::getInstance()->setUniforms(args...);
+        glDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_SHORT, (const void*)((SolidPassCmd::getInstance()->Offset[T::MaterialType] + i) * sizeof(DrawElementsIndirectCommand)));
     }
 }
 
-template<typename Shader, MeshMaterial Mat, video::E_VERTEX_TYPE VT, typename...Args>
+template<typename T, typename...Args>
 void multidraw1stPass(Args...args)
 {
-    glUseProgram(Shader::getInstance()->Program);
-    glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(VT, InstanceTypeDefault));
-    if (SolidPassCmd::getInstance()->Size[Mat])
+    glUseProgram(T::InstancedFirstPassShader::getInstance()->Program);
+    glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(T::VertexType, T::Instance));
+    if (SolidPassCmd::getInstance()->Size[T::MaterialType])
     {
-        Shader::getInstance()->setUniforms(args...);
+        T::InstancedFirstPassShader::getInstance()->setUniforms(args...);
         glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_SHORT,
-            (const void*)(SolidPassCmd::getInstance()->Offset[Mat] * sizeof(DrawElementsIndirectCommand)),
-            SolidPassCmd::getInstance()->Size[Mat],
+            (const void*)(SolidPassCmd::getInstance()->Offset[T::MaterialType] * sizeof(DrawElementsIndirectCommand)),
+            (int)SolidPassCmd::getInstance()->Size[T::MaterialType],
             sizeof(DrawElementsIndirectCommand));
     }
 }
@@ -238,22 +477,9 @@ static core::vector3df windDir;
 void IrrDriver::renderSolidFirstPass()
 {
     windDir = getWindDir();
-    m_rtts->getFBO(FBO_NORMAL_AND_DEPTHS).Bind();
-    glClearColor(0., 0., 0., 0.);
-    glDepthMask(GL_TRUE);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-    glDepthFunc(GL_LEQUAL);
-    glEnable(GL_DEPTH_TEST);
-    glDisable(GL_ALPHA_TEST);
-    glDisable(GL_BLEND);
-    glEnable(GL_CULL_FACE);
 
     if (irr_driver->hasARB_draw_indirect())
         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, SolidPassCmd::getInstance()->drawindirectcmd);
-
-    if (!UserConfigParams::m_dynamic_lights)
-        return;
 
     {
         ScopedGPUTimer Timer(getGPUTimer(Q_SOLID_PASS1));
@@ -262,81 +488,54 @@ void IrrDriver::renderSolidFirstPass()
         for (unsigned i = 0; i < ImmediateDrawList::getInstance()->size(); i++)
             ImmediateDrawList::getInstance()->at(i)->render();
 
-        std::vector<TexUnit> object_pass1_texunits = TexUnits(TexUnit(0, true) );
-        renderMeshes1stPass<MeshShader::ObjectPass1Shader, video::EVT_STANDARD, 2, 1>(object_pass1_texunits, ListMatDefault::getInstance()->SolidPass);
-        renderMeshes1stPass<MeshShader::ObjectPass1Shader, video::EVT_2TCOORDS, 2, 1>(object_pass1_texunits, ListMatSplatting::getInstance()->SolidPass);
-        renderMeshes1stPass<MeshShader::ObjectRefPass1Shader, video::EVT_STANDARD, 3, 2, 1>(object_pass1_texunits, ListMatUnlit::getInstance()->SolidPass);
-        renderMeshes1stPass<MeshShader::ObjectRefPass1Shader, video::EVT_STANDARD, 3, 2, 1>(TexUnits(TexUnit(0, true)), ListMatAlphaRef::getInstance()->SolidPass);
-        renderMeshes1stPass<MeshShader::GrassPass1Shader, video::EVT_STANDARD, 3, 2, 1>(TexUnits(TexUnit(0, true)), ListMatGrass::getInstance()->SolidPass);
-        renderMeshes1stPass<MeshShader::NormalMapShader, video::EVT_TANGENTS, 2, 1>(TexUnits(
-            TexUnit(1, false),
-            TexUnit(0, true)
-            ), ListMatNormalMap::getInstance()->SolidPass);
-        renderMeshes1stPass<MeshShader::ObjectPass1Shader, video::EVT_STANDARD, 2, 1>(object_pass1_texunits, ListMatSphereMap::getInstance()->SolidPass);
-        renderMeshes1stPass<MeshShader::ObjectPass1Shader, video::EVT_2TCOORDS, 2, 1>(object_pass1_texunits, ListMatDetails::getInstance()->SolidPass);
+        renderMeshes1stPass<DefaultMaterial, 2, 1>();
+        renderMeshes1stPass<SplattingMat, 2, 1>();
+        renderMeshes1stPass<UnlitMat, 3, 2, 1>();
+        renderMeshes1stPass<AlphaRef, 3, 2, 1>();
+        renderMeshes1stPass<GrassMat, 3, 2, 1>();
+        renderMeshes1stPass<NormalMat, 2, 1>();
+        renderMeshes1stPass<SphereMap, 2, 1>();
+        renderMeshes1stPass<DetailMat, 2, 1>();
 
         if (UserConfigParams::m_azdo)
         {
-            multidraw1stPass<MeshShader::InstancedObjectPass1Shader, MAT_DEFAULT, video::EVT_STANDARD>();
-            multidraw1stPass<MeshShader::InstancedObjectRefPass1Shader, MAT_ALPHA_REF, video::EVT_STANDARD>();
-            multidraw1stPass<MeshShader::InstancedNormalMapShader, MAT_NORMAL_MAP, video::EVT_TANGENTS>();
-            multidraw1stPass<MeshShader::InstancedObjectPass1Shader, MAT_SPHEREMAP, video::EVT_STANDARD>();
-            multidraw1stPass<MeshShader::InstancedObjectPass1Shader, MAT_DETAIL, video::EVT_2TCOORDS>();
-            multidraw1stPass<MeshShader::InstancedObjectRefPass1Shader, MAT_UNLIT, video::EVT_STANDARD>();
-            multidraw1stPass<MeshShader::InstancedGrassPass1Shader, MAT_GRASS, video::EVT_STANDARD>(windDir);
+            multidraw1stPass<DefaultMaterial>();
+            multidraw1stPass<AlphaRef>();
+            multidraw1stPass<SphereMap>();
+            multidraw1stPass<UnlitMat>();
+            multidraw1stPass<GrassMat>(windDir);
+
+            multidraw1stPass<NormalMat>();
+            multidraw1stPass<DetailMat>();
         }
         else if (irr_driver->hasARB_draw_indirect())
         {
-            // Default
-            renderInstancedMeshes1stPass<MeshShader::InstancedObjectPass1Shader, MAT_DEFAULT, video::EVT_STANDARD>(
-                TexUnits(TexUnit(0, true)), ListInstancedMatDefault::getInstance()->SolidPass);
-            // Alpha ref
-            renderInstancedMeshes1stPass<MeshShader::InstancedObjectRefPass1Shader, MAT_ALPHA_REF, video::EVT_STANDARD>(
-                TexUnits(TexUnit(0, true)), ListInstancedMatAlphaRef::getInstance()->SolidPass);
-            // Unlit
-            renderInstancedMeshes1stPass<MeshShader::InstancedObjectPass1Shader, MAT_UNLIT, video::EVT_STANDARD>(
-                TexUnits(TexUnit(0, true)), ListInstancedMatUnlit::getInstance()->SolidPass);
-            // Spheremap
-            renderInstancedMeshes1stPass<MeshShader::InstancedObjectPass1Shader, MAT_SPHEREMAP, video::EVT_STANDARD>(
-                TexUnits(TexUnit(0, true)), ListInstancedMatSphereMap::getInstance()->SolidPass);
-            // Grass
-            renderInstancedMeshes1stPass<MeshShader::InstancedGrassPass1Shader, MAT_GRASS, video::EVT_STANDARD>(
-                TexUnits(TexUnit(0, true)), ListInstancedMatGrass::getInstance()->SolidPass, windDir);
-
-            // Detail
-            renderInstancedMeshes1stPass<MeshShader::InstancedObjectPass1Shader, MAT_DETAIL, video::EVT_2TCOORDS>(
-                TexUnits(TexUnit(0, true)), ListInstancedMatDetails::getInstance()->SolidPass);
-
-            // Normal Map
-            renderInstancedMeshes1stPass<MeshShader::InstancedNormalMapShader, MAT_NORMAL_MAP, video::EVT_TANGENTS>(
-                TexUnits(TexUnit(1, false), TexUnit(0, true)), ListInstancedMatNormalMap::getInstance()->SolidPass);
+            renderInstancedMeshes1stPass<DefaultMaterial>();
+            renderInstancedMeshes1stPass<AlphaRef>();
+            renderInstancedMeshes1stPass<UnlitMat>();
+            renderInstancedMeshes1stPass<SphereMap>();
+            renderInstancedMeshes1stPass<GrassMat>(windDir);
+            renderInstancedMeshes1stPass<DetailMat>();
+            renderInstancedMeshes1stPass<NormalMat>();
         }
     }
 }
 
-template<typename Shader, enum E_VERTEX_TYPE VertexType, int...List, typename... TupleType>
-void renderMeshes2ndPass(const std::vector<TexUnit> &TexUnits, std::vector<STK::Tuple<TupleType...> > &meshes, const std::vector<uint64_t> &Prefilled_Handle,
+template<typename T, int...List>
+void renderMeshes2ndPass( const std::vector<uint64_t> &Prefilled_Handle,
     const std::vector<GLuint> &Prefilled_Tex)
 {
-    glUseProgram(Shader::getInstance()->Program);
+    auto &meshes = T::List::getInstance()->SolidPass;
+    glUseProgram(T::SecondPassShader::getInstance()->Program);
     if (irr_driver->hasARB_base_instance())
-        glBindVertexArray(VAOManager::getInstance()->getVAO(VertexType));
+        glBindVertexArray(VAOManager::getInstance()->getVAO(T::VertexType));
     for (unsigned i = 0; i < meshes.size(); i++)
     {
-        std::vector<uint64_t> Handles(Prefilled_Handle);
-        std::vector<GLuint> Textures(Prefilled_Tex);
         GLMesh &mesh = *(STK::tuple_get<0>(meshes.at(i)));
         if (!irr_driver->hasARB_base_instance())
             glBindVertexArray(mesh.vao);
-        for (unsigned j = 0; j < TexUnits.size(); j++)
-        {
-            if (UserConfigParams::m_azdo)
-                Handles.push_back(mesh.TextureHandles[TexUnits[j].m_id]);
-            else
-                Textures.push_back(getTextureGLuint(mesh.textures[TexUnits[j].m_id]));
-        }
 
-        if (mesh.VAOType != VertexType)
+        if (mesh.VAOType != T::VertexType)
         {
 #ifdef DEBUG
             Log::error("Materials", "Wrong vertex Type associed to pass 2 (hint texture : %s)", mesh.textures[0]->getName().getPath().c_str());
@@ -345,67 +544,50 @@ void renderMeshes2ndPass(const std::vector<TexUnit> &TexUnits, std::vector<STK::
         }
 
         if (UserConfigParams::m_azdo)
-            Shader::getInstance()->SetTextureHandles(Handles);
+            HandleExpander<typename T::SecondPassShader>::template Expand(mesh.TextureHandles, T::SecondPassTextures, Prefilled_Handle[0], Prefilled_Handle[1], Prefilled_Handle[2]);
         else
-            Shader::getInstance()->SetTextureUnits(Textures);
-        custom_unroll_args<List...>::template exec(Shader::getInstance(), meshes.at(i));
+            TexExpander<typename T::SecondPassShader>::template ExpandTex(mesh, T::SecondPassTextures, Prefilled_Tex[0], Prefilled_Tex[1], Prefilled_Tex[2]);
+        custom_unroll_args<List...>::template exec(T::SecondPassShader::getInstance(), meshes.at(i));
     }
 }
 
-template<typename Shader, MeshMaterial Mat, video::E_VERTEX_TYPE VT, typename...Args>
-void renderInstancedMeshes2ndPass(const std::vector<TexUnit> &TexUnits, const std::vector<GLuint> &Prefilled_tex, std::vector<GLMesh *> &meshes, Args...args)
+template<typename T, typename...Args>
+void renderInstancedMeshes2ndPass(const std::vector<GLuint> &Prefilled_tex, Args...args)
 {
-    glUseProgram(Shader::getInstance()->Program);
-    glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(VT, InstanceTypeDefault));
+    std::vector<GLMesh *> &meshes = T::InstancedList::getInstance()->SolidPass;
+    glUseProgram(T::InstancedSecondPassShader::getInstance()->Program);
+    glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(T::VertexType, T::Instance));
     for (unsigned i = 0; i < meshes.size(); i++)
     {
         GLMesh *mesh = meshes[i];
-        std::vector<GLuint> Textures(Prefilled_tex);
-        for (unsigned j = 0; j < TexUnits.size(); j++)
-            Textures.push_back(getTextureGLuint(mesh->textures[TexUnits[j].m_id]));
-        Shader::getInstance()->SetTextureUnits(Textures);
-        Shader::getInstance()->setUniforms(args...);
-        glDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_SHORT, (const void*)((SolidPassCmd::getInstance()->Offset[Mat] + i) * sizeof(DrawElementsIndirectCommand)));
+        TexExpander<typename T::InstancedSecondPassShader>::template ExpandTex(*mesh, T::SecondPassTextures, Prefilled_tex[0], Prefilled_tex[1], Prefilled_tex[2]);
+        T::InstancedSecondPassShader::getInstance()->setUniforms(args...);
+        glDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_SHORT, (const void*)((SolidPassCmd::getInstance()->Offset[T::MaterialType] + i) * sizeof(DrawElementsIndirectCommand)));
     }
 }
 
-template<typename Shader, MeshMaterial Mat, video::E_VERTEX_TYPE VT, typename...Args>
+
+template<typename T, typename...Args>
 void multidraw2ndPass(const std::vector<uint64_t> &Handles, Args... args)
 {
-    glUseProgram(Shader::getInstance()->Program);
-    glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(VT, InstanceTypeDefault));
-    if (SolidPassCmd::getInstance()->Size[Mat])
+    glUseProgram(T::InstancedSecondPassShader::getInstance()->Program);
+    glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(T::VertexType, T::Instance));
+    uint64_t nulltex[10] = {};
+    if (SolidPassCmd::getInstance()->Size[T::MaterialType])
     {
-        Shader::getInstance()->SetTextureHandles(Handles);
-        Shader::getInstance()->setUniforms(args...);
+        HandleExpander<typename T::InstancedSecondPassShader>::template Expand(nulltex, T::SecondPassTextures, Handles[0], Handles[1], Handles[2]);
+        T::InstancedSecondPassShader::getInstance()->setUniforms(args...);
         glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_SHORT,
-            (const void*)(SolidPassCmd::getInstance()->Offset[Mat] * sizeof(DrawElementsIndirectCommand)),
-            SolidPassCmd::getInstance()->Size[Mat],
-            sizeof(DrawElementsIndirectCommand));
+            (const void*)(SolidPassCmd::getInstance()->Offset[T::MaterialType] * sizeof(DrawElementsIndirectCommand)),
+            (int)SolidPassCmd::getInstance()->Size[T::MaterialType],
+            (int)sizeof(DrawElementsIndirectCommand));
     }
 }
 
 void IrrDriver::renderSolidSecondPass()
 {
-    SColor clearColor(0, 150, 150, 150);
-    if (World::getWorld() != NULL)
-        clearColor = World::getWorld()->getClearColor();
-
-    glClearColor(clearColor.getRed() / 255.f, clearColor.getGreen() / 255.f,
-        clearColor.getBlue() / 255.f, clearColor.getAlpha() / 255.f);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    if (UserConfigParams::m_dynamic_lights)
-        glDepthMask(GL_FALSE);
-    else
-    {
-        glDepthMask(GL_TRUE);
-        glClear(GL_DEPTH_BUFFER_BIT);
-    }
-
     irr_driver->setPhase(SOLID_LIT_PASS);
     glEnable(GL_DEPTH_TEST);
-    glDisable(GL_ALPHA_TEST);
     glDisable(GL_BLEND);
 
     uint64_t DiffuseHandle = 0, SpecularHandle = 0, SSAOHandle = 0, DepthHandle = 0;
@@ -439,112 +621,119 @@ void IrrDriver::renderSolidSecondPass()
 
         std::vector<GLuint> DiffSpecSSAOTex = createVector<GLuint>(m_rtts->getRenderTarget(RTT_DIFFUSE), m_rtts->getRenderTarget(RTT_SPECULAR), m_rtts->getRenderTarget(RTT_HALF1_R));
 
-        renderMeshes2ndPass<MeshShader::ObjectPass2Shader, video::EVT_STANDARD, 3, 1>(TexUnits(
-            TexUnit(0, true)
-        ), ListMatDefault::getInstance()->SolidPass,
-        createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle), DiffSpecSSAOTex);
-        renderMeshes2ndPass<MeshShader::ObjectRefPass2Shader, video::EVT_STANDARD, 3, 1 >(TexUnits(
-            TexUnit(0, true)
-            ), ListMatAlphaRef::getInstance()->SolidPass, createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle), DiffSpecSSAOTex);
-        renderMeshes2ndPass<MeshShader::ObjectUnlitShader, video::EVT_STANDARD, 3, 1>(TexUnits(
-            TexUnit(0, true)
-            ), ListMatUnlit::getInstance()->SolidPass, createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle), DiffSpecSSAOTex);
-        renderMeshes2ndPass<MeshShader::SplattingShader, video::EVT_2TCOORDS, 1>(TexUnits(
-            TexUnit(1, false),
-            TexUnit(2, true),
-            TexUnit(3, true),
-            TexUnit(4, true),
-            TexUnit(0, true)
-            ), ListMatSplatting::getInstance()->SolidPass, createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle), DiffSpecSSAOTex);
-        renderMeshes2ndPass<MeshShader::SphereMapShader, video::EVT_STANDARD, 2, 1>(TexUnits(
-            TexUnit(0, true)
-            ), ListMatSphereMap::getInstance()->SolidPass, createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle), DiffSpecSSAOTex);
-        renderMeshes2ndPass<MeshShader::DetailledObjectPass2Shader, video::EVT_2TCOORDS, 1>(TexUnits(
-            TexUnit(0, true),
-            TexUnit(1, true)
-            ), ListMatDetails::getInstance()->SolidPass, createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle), DiffSpecSSAOTex);
-        renderMeshes2ndPass<MeshShader::GrassPass2Shader, video::EVT_STANDARD, 3, 1>(TexUnits(
-            TexUnit(0, true)
-            ), ListMatGrass::getInstance()->SolidPass, createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle), DiffSpecSSAOTex);
-        renderMeshes2ndPass<MeshShader::ObjectPass2Shader, video::EVT_TANGENTS, 3, 1>(TexUnits(
-            TexUnit(0, true)
-            ), ListMatNormalMap::getInstance()->SolidPass, createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle), DiffSpecSSAOTex);
+        renderMeshes2ndPass<DefaultMaterial, 3, 1>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle), DiffSpecSSAOTex);
+        renderMeshes2ndPass<AlphaRef, 3, 1 >(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle), DiffSpecSSAOTex);
+        renderMeshes2ndPass<UnlitMat, 3, 1>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle), DiffSpecSSAOTex);
+        renderMeshes2ndPass<SplattingMat, 1>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle), DiffSpecSSAOTex);
+        renderMeshes2ndPass<SphereMap, 2, 1>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle), DiffSpecSSAOTex);
+        renderMeshes2ndPass<DetailMat, 1>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle), DiffSpecSSAOTex);
+        renderMeshes2ndPass<GrassMat, 3, 1>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle), DiffSpecSSAOTex);
+        renderMeshes2ndPass<NormalMat, 3, 1>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle), DiffSpecSSAOTex);
 
         if (UserConfigParams::m_azdo)
         {
-            multidraw2ndPass<MeshShader::InstancedObjectPass2Shader, MAT_DEFAULT, video::EVT_STANDARD>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle, 0));
-            multidraw2ndPass<MeshShader::InstancedObjectPass2Shader, MAT_NORMAL_MAP, video::EVT_TANGENTS>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle, 0));
-            multidraw2ndPass<MeshShader::InstancedObjectRefPass2Shader, MAT_ALPHA_REF, video::EVT_STANDARD>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle, 0));
-            multidraw2ndPass<MeshShader::InstancedSphereMapShader, MAT_SPHEREMAP, video::EVT_STANDARD>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle, 0));
-            multidraw2ndPass<MeshShader::InstancedDetailledObjectPass2Shader, MAT_DETAIL, video::EVT_2TCOORDS>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle, 0, 0));
-            multidraw2ndPass<MeshShader::InstancedObjectUnlitShader, MAT_UNLIT, video::EVT_STANDARD>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle, 0));
-            SunLightProvider * const cb = (SunLightProvider *)irr_driver->getCallback(ES_SUNLIGHT);
-            multidraw2ndPass<MeshShader::InstancedGrassPass2Shader, MAT_GRASS, video::EVT_STANDARD>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle, DepthHandle, 0), windDir, cb->getPosition());
+            multidraw2ndPass<DefaultMaterial>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle, 0, 0));
+            multidraw2ndPass<AlphaRef>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle, 0, 0));
+            multidraw2ndPass<SphereMap>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle, 0));
+            multidraw2ndPass<UnlitMat>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle, 0));
+            multidraw2ndPass<NormalMat>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle, 0, 0));
+            multidraw2ndPass<DetailMat>(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle, 0, 0, 0));
+
+            // template does not work with template due to extra depth texture
+            {
+                SunLightProvider * const cb = (SunLightProvider *)irr_driver->getCallback(ES_SUNLIGHT);
+                glUseProgram(GrassMat::InstancedSecondPassShader::getInstance()->Program);
+                glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(GrassMat::VertexType, GrassMat::Instance));
+                uint64_t nulltex[10] = {};
+                if (SolidPassCmd::getInstance()->Size[GrassMat::MaterialType])
+                {
+                    HandleExpander<GrassMat::InstancedSecondPassShader>::Expand(nulltex, GrassMat::SecondPassTextures, DiffuseHandle, SpecularHandle, SSAOHandle, DepthHandle);
+                    GrassMat::InstancedSecondPassShader::getInstance()->setUniforms(windDir, cb->getPosition());
+                    glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_SHORT,
+                        (const void*)(SolidPassCmd::getInstance()->Offset[GrassMat::MaterialType] * sizeof(DrawElementsIndirectCommand)),
+                        (int)SolidPassCmd::getInstance()->Size[GrassMat::MaterialType],
+                        (int)sizeof(DrawElementsIndirectCommand));
+                }
+            }
         }
         else if (irr_driver->hasARB_draw_indirect())
         {
-            // Default
-            renderInstancedMeshes2ndPass<MeshShader::InstancedObjectPass2Shader, MAT_DEFAULT, video::EVT_STANDARD>(
-                TexUnits(TexUnit(0, true)), DiffSpecSSAOTex, ListInstancedMatDefault::getInstance()->SolidPass);
-            // Alpha ref
-            renderInstancedMeshes2ndPass<MeshShader::InstancedObjectRefPass2Shader, MAT_ALPHA_REF, video::EVT_STANDARD>(
-                TexUnits(TexUnit(0, true)), DiffSpecSSAOTex, ListInstancedMatAlphaRef::getInstance()->SolidPass);
-            // Unlit
-            renderInstancedMeshes2ndPass<MeshShader::InstancedObjectUnlitShader, MAT_UNLIT, video::EVT_STANDARD>(
-                TexUnits(TexUnit(0, true)), DiffSpecSSAOTex, ListInstancedMatUnlit::getInstance()->SolidPass);
-            // Spheremap
-            renderInstancedMeshes2ndPass<MeshShader::InstancedSphereMapShader, MAT_SPHEREMAP, video::EVT_STANDARD>(
-                TexUnits(TexUnit(0, true)), DiffSpecSSAOTex, ListInstancedMatSphereMap::getInstance()->SolidPass);
-            // Details
-            renderInstancedMeshes2ndPass<MeshShader::InstancedDetailledObjectPass2Shader, MAT_DETAIL, video::EVT_2TCOORDS>(
-                TexUnits(TexUnit(0, true), TexUnit(1, false)), DiffSpecSSAOTex, ListInstancedMatDetails::getInstance()->SolidPass);
+            renderInstancedMeshes2ndPass<DefaultMaterial>(DiffSpecSSAOTex);
+            renderInstancedMeshes2ndPass<AlphaRef>(DiffSpecSSAOTex);
+            renderInstancedMeshes2ndPass<UnlitMat>(DiffSpecSSAOTex);
+            renderInstancedMeshes2ndPass<SphereMap>(DiffSpecSSAOTex);
+            renderInstancedMeshes2ndPass<DetailMat>(DiffSpecSSAOTex);
+            renderInstancedMeshes2ndPass<NormalMat>(DiffSpecSSAOTex);
 
-            // Normal map
-            renderInstancedMeshes2ndPass<MeshShader::InstancedObjectPass2Shader, MAT_NORMAL_MAP, video::EVT_TANGENTS>(
-                TexUnits(TexUnit(0, true)), DiffSpecSSAOTex, ListInstancedMatNormalMap::getInstance()->SolidPass);
-
-            // Grass
-            SunLightProvider * const cb = (SunLightProvider *)irr_driver->getCallback(ES_SUNLIGHT);
-            DiffSpecSSAOTex.push_back(irr_driver->getDepthStencilTexture());
-            renderInstancedMeshes2ndPass<MeshShader::InstancedGrassPass2Shader, MAT_GRASS, video::EVT_STANDARD>(
-                TexUnits(TexUnit(0, true)), DiffSpecSSAOTex, ListInstancedMatGrass::getInstance()->SolidPass, windDir, cb->getPosition());
+            // template does not work with template due to extra depth texture
+            {
+                SunLightProvider * const cb = (SunLightProvider *)irr_driver->getCallback(ES_SUNLIGHT);
+                std::vector<GLMesh *> &meshes = GrassMat::InstancedList::getInstance()->SolidPass;
+                glUseProgram(GrassMat::InstancedSecondPassShader::getInstance()->Program);
+                glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(GrassMat::VertexType, GrassMat::Instance));
+                for (unsigned i = 0; i < meshes.size(); i++)
+                {
+                    GLMesh *mesh = meshes[i];
+                    TexExpander<GrassMat::InstancedSecondPassShader>::ExpandTex(*mesh, GrassMat::SecondPassTextures, DiffSpecSSAOTex[0], DiffSpecSSAOTex[1], DiffSpecSSAOTex[2], irr_driver->getDepthStencilTexture());
+                    GrassMat::InstancedSecondPassShader::getInstance()->setUniforms(windDir, cb->getPosition());
+                    glDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_SHORT, (const void*)((SolidPassCmd::getInstance()->Offset[GrassMat::MaterialType] + i) * sizeof(DrawElementsIndirectCommand)));
+                }
+            }
         }
     }
 }
 
-template<enum E_VERTEX_TYPE VertexType, typename... TupleType>
-static void renderMeshNormals(std::vector<STK::Tuple<TupleType...> > *meshes)
+template<typename T>
+static void renderInstancedMeshNormals()
+{
+    std::vector<GLMesh *> &meshes = T::InstancedList::getInstance()->SolidPass;
+    glUseProgram(MeshShader::NormalVisualizer::getInstance()->Program);
+    glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(T::VertexType, T::Instance));
+    for (unsigned i = 0; i < meshes.size(); i++)
+    {
+        GLMesh *mesh = meshes[i];
+        MeshShader::NormalVisualizer::getInstance()->setUniforms(video::SColor(255, 0, 255, 0));
+        glDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_SHORT, (const void*)((SolidPassCmd::getInstance()->Offset[T::MaterialType] + i) * sizeof(DrawElementsIndirectCommand)));
+    }
+}
+
+template<typename T>
+static void renderMultiMeshNormals()
 {
     glUseProgram(MeshShader::NormalVisualizer::getInstance()->Program);
-    glBindVertexArray(VAOManager::getInstance()->getVAO(VertexType));
-    for (unsigned i = 0; i < meshes->size(); i++)
+    glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(T::VertexType, T::Instance));
+    if (SolidPassCmd::getInstance()->Size[T::MaterialType])
     {
-        GLMesh &mesh = *(STK::tuple_get<0>(meshes->at(i)));
-
-        if (mesh.VAOType != VertexType)
-        {
-#ifdef DEBUG
-            Log::error("Materials", "Wrong vertex Type associed to pass 2 (hint texture : %s)", mesh.textures[0]->getName().getPath().c_str());
-#endif
-            continue;
-        }
-        draw(MeshShader::NormalVisualizer::getInstance(), STK::tuple_get<0>(meshes->at(i)), STK::tuple_get<1>(meshes->at(i)), STK::tuple_get<2>(meshes->at(i)), video::SColor(255, 0, 255, 0));
+        MeshShader::NormalVisualizer::getInstance()->setUniforms(video::SColor(255, 0, 255, 0));
+        glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_SHORT,
+            (const void*)(SolidPassCmd::getInstance()->Offset[T::MaterialType] * sizeof(DrawElementsIndirectCommand)),
+            (int)SolidPassCmd::getInstance()->Size[T::MaterialType],
+            (int)sizeof(DrawElementsIndirectCommand));
     }
 }
 
 void IrrDriver::renderNormalsVisualisation()
 {
-//    renderMeshNormals<video::EVT_STANDARD>(ListMatDefault::getInstance());
-//    renderMeshNormals<video::EVT_STANDARD>(ListMatAlphaRef::getInstance());
-//    renderMeshNormals<video::EVT_STANDARD>(ListMatSphereMap::getInstance());
-//    renderMeshNormals<video::EVT_STANDARD>(ListMatGrass::getInstance());
-//    renderMeshNormals<video::EVT_2TCOORDS>(ListMatDetails::getInstance());
-//    renderMeshNormals<video::EVT_STANDARD>(ListMatUnlit::getInstance());
-//    renderMeshNormals<video::EVT_2TCOORDS>(ListMatSplatting::getInstance());
-//    renderMeshNormals<video::EVT_TANGENTS>(ListMatNormalMap::getInstance());
+    if (UserConfigParams::m_azdo) {
+        renderMultiMeshNormals<DefaultMaterial>();
+        renderMultiMeshNormals<AlphaRef>();
+        renderMultiMeshNormals<UnlitMat>();
+        renderMultiMeshNormals<SphereMap>();
+        renderMultiMeshNormals<DetailMat>();
+        renderMultiMeshNormals<NormalMat>();
+    }
+    else if (irr_driver->hasARB_draw_indirect())
+    {
+        renderInstancedMeshNormals<DefaultMaterial>();
+        renderInstancedMeshNormals<AlphaRef>();
+        renderInstancedMeshNormals<UnlitMat>();
+        renderInstancedMeshNormals<SphereMap>();
+        renderInstancedMeshNormals<DetailMat>();
+        renderInstancedMeshNormals<NormalMat>();
+    }
 }
 
-template<typename Shader, enum E_VERTEX_TYPE VertexType, int...List, typename... TupleType>
+template<typename Shader, enum video::E_VERTEX_TYPE VertexType, int...List, typename... TupleType>
 void renderTransparenPass(const std::vector<TexUnit> &TexUnits, std::vector<STK::Tuple<TupleType...> > *meshes)
 {
     glUseProgram(Shader::getInstance()->Program);
@@ -552,28 +741,9 @@ void renderTransparenPass(const std::vector<TexUnit> &TexUnits, std::vector<STK:
         glBindVertexArray(VAOManager::getInstance()->getVAO(VertexType));
     for (unsigned i = 0; i < meshes->size(); i++)
     {
-        std::vector<uint64_t> Handles;
-        std::vector<GLuint> Textures;
         GLMesh &mesh = *(STK::tuple_get<0>(meshes->at(i)));
         if (!irr_driver->hasARB_base_instance())
             glBindVertexArray(mesh.vao);
-        for (unsigned j = 0; j < TexUnits.size(); j++)
-        {
-            if (!mesh.textures[TexUnits[j].m_id])
-                mesh.textures[TexUnits[j].m_id] = getUnicolorTexture(video::SColor(255, 255, 255, 255));
-            compressTexture(mesh.textures[TexUnits[j].m_id], TexUnits[j].m_premul_alpha);
-            if (UserConfigParams::m_azdo)
-            {
-                if (!mesh.TextureHandles[TexUnits[j].m_id])
-                    mesh.TextureHandles[TexUnits[j].m_id] = glGetTextureSamplerHandleARB(getTextureGLuint(mesh.textures[TexUnits[j].m_id]), Shader::getInstance()->SamplersId[Handles.size()]);
-                if (!glIsTextureHandleResidentARB(mesh.TextureHandles[TexUnits[j].m_id]))
-                    glMakeTextureHandleResidentARB(mesh.TextureHandles[TexUnits[j].m_id]);
-                Handles.push_back(mesh.TextureHandles[TexUnits[j].m_id]);
-            }
-            else
-                Textures.push_back(getTextureGLuint(mesh.textures[TexUnits[j].m_id]));
-        }
-
         if (mesh.VAOType != VertexType)
         {
 #ifdef DEBUG
@@ -583,9 +753,9 @@ void renderTransparenPass(const std::vector<TexUnit> &TexUnits, std::vector<STK:
         }
 
         if (UserConfigParams::m_azdo)
-            Shader::getInstance()->SetTextureHandles(Handles);
+            Shader::getInstance()->SetTextureHandles(mesh.TextureHandles[0]);
         else
-            Shader::getInstance()->SetTextureUnits(Textures);
+            Shader::getInstance()->SetTextureUnits(getTextureGLuint(mesh.textures[0]));
         custom_unroll_args<List...>::template exec(Shader::getInstance(), meshes->at(i));
     }
 }
@@ -595,7 +765,6 @@ static video::ITexture *displaceTex = 0;
 void IrrDriver::renderTransparent()
 {
     glEnable(GL_DEPTH_TEST);
-    glDisable(GL_ALPHA_TEST);
     glDepthMask(GL_FALSE);
     glEnable(GL_BLEND);
     glBlendEquation(GL_FUNC_ADD);
@@ -607,7 +776,7 @@ void IrrDriver::renderTransparent()
         ImmediateDrawList::getInstance()->at(i)->render();
 
     if (irr_driver->hasARB_base_instance())
-        glBindVertexArray(VAOManager::getInstance()->getVAO(EVT_STANDARD));
+        glBindVertexArray(VAOManager::getInstance()->getVAO(video::EVT_STANDARD));
 
     if (World::getWorld() && World::getWorld()->isFogEnabled())
     {
@@ -644,7 +813,6 @@ void IrrDriver::renderTransparent()
     cb->update();
 
     glEnable(GL_DEPTH_TEST);
-    glDisable(GL_ALPHA_TEST);
     glDepthMask(GL_FALSE);
     glDisable(GL_BLEND);
     glClear(GL_STENCIL_BUFFER_BIT);
@@ -653,7 +821,7 @@ void IrrDriver::renderTransparent()
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
     if (irr_driver->hasARB_base_instance())
-        glBindVertexArray(VAOManager::getInstance()->getVAO(EVT_2TCOORDS));
+        glBindVertexArray(VAOManager::getInstance()->getVAO(video::EVT_2TCOORDS));
     // Generate displace mask
     // Use RTT_TMP4 as displace mask
     irr_driver->getFBO(FBO_TMP1_WITH_DS).Bind();
@@ -677,7 +845,8 @@ void IrrDriver::renderTransparent()
 
         glUseProgram(MeshShader::DisplaceMaskShader::getInstance()->Program);
         MeshShader::DisplaceMaskShader::getInstance()->setUniforms(AbsoluteTransformation);
-        glDrawElementsBaseVertex(ptype, count, itype, (GLvoid *)mesh.vaoOffset, mesh.vaoBaseVertex);
+        glDrawElementsBaseVertex(ptype, (int)count, itype,
+                                 (GLvoid *)mesh.vaoOffset, (int)mesh.vaoBaseVertex);
     }
 
     irr_driver->getFBO(FBO_DISPLACE).Bind();
@@ -697,16 +866,16 @@ void IrrDriver::renderTransparent()
         size_t count = mesh.IndexCount;
         // Render the effect
         MeshShader::DisplaceShader::getInstance()->SetTextureUnits(
-            createVector<GLuint>(getTextureGLuint(displaceTex),
-                irr_driver->getRenderTargetTexture(RTT_COLOR),
-                irr_driver->getRenderTargetTexture(RTT_TMP1),
-                getTextureGLuint(mesh.textures[0])));
+            getTextureGLuint(displaceTex),
+            irr_driver->getRenderTargetTexture(RTT_COLOR),
+            irr_driver->getRenderTargetTexture(RTT_TMP1),
+            getTextureGLuint(mesh.textures[0]));
         glUseProgram(MeshShader::DisplaceShader::getInstance()->Program);
         MeshShader::DisplaceShader::getInstance()->setUniforms(AbsoluteTransformation,
             core::vector2df(cb->getDirX(), cb->getDirY()),
             core::vector2df(cb->getDir2X(), cb->getDir2Y()));
 
-        glDrawElementsBaseVertex(ptype, count, itype, (GLvoid *)mesh.vaoOffset, mesh.vaoBaseVertex);
+        glDrawElementsBaseVertex(ptype, (int)count, itype, (GLvoid *)mesh.vaoOffset, (int)mesh.vaoBaseVertex);
     }
 
     irr_driver->getFBO(FBO_COLORS).Bind();
@@ -725,7 +894,7 @@ void drawShadow(const T *Shader, unsigned cascade, const GLMesh *mesh, uniforms.
     size_t count = mesh->IndexCount;
 
     Shader->setUniforms(cascade, Args...);
-    glDrawElementsBaseVertex(ptype, count, itype, (GLvoid *)mesh->vaoOffset, mesh->vaoBaseVertex);
+    glDrawElementsBaseVertex(ptype, (int)count, itype, (GLvoid *)mesh->vaoOffset, (int)mesh->vaoBaseVertex);
 }
 
 template<int...List>
@@ -751,77 +920,64 @@ struct shadow_custom_unroll_args<N, List...>
     }
 };
 
-template<typename T, enum E_VERTEX_TYPE VertexType, int...List, typename... Args>
-void renderShadow(const std::vector<GLuint> TextureUnits, unsigned cascade, const std::vector<STK::Tuple<Args...> > &t)
+template<typename T, int...List>
+void renderShadow(unsigned cascade)
 {
-    glUseProgram(T::getInstance()->Program);
+    auto &t = T::List::getInstance()->Shadows[cascade];
+    glUseProgram(T::ShadowPassShader::getInstance()->Program);
     if (irr_driver->hasARB_base_instance())
-        glBindVertexArray(VAOManager::getInstance()->getVAO(VertexType));
+        glBindVertexArray(VAOManager::getInstance()->getVAO(T::VertexType));
     for (unsigned i = 0; i < t.size(); i++)
     {
-        std::vector<uint64_t> Handles;
-        std::vector<GLuint> Textures;
         GLMesh *mesh = STK::tuple_get<0>(t.at(i));
         if (!irr_driver->hasARB_base_instance())
             glBindVertexArray(mesh->vao);
-        for (unsigned j = 0; j < TextureUnits.size(); j++)
-        {
-            compressTexture(mesh->textures[TextureUnits[j]], true);
-            if (UserConfigParams::m_azdo)
-                Handles.push_back(mesh->TextureHandles[TextureUnits[j]]);
-            else
-                Textures.push_back(getTextureGLuint(mesh->textures[TextureUnits[j]]));
-        }
         if (UserConfigParams::m_azdo)
-            T::getInstance()->SetTextureHandles(Handles);
+            HandleExpander<typename T::ShadowPassShader>::template Expand(mesh->TextureHandles, T::ShadowTextures);
         else
-            T::getInstance()->SetTextureUnits(Textures);
-        shadow_custom_unroll_args<List...>::template exec<T>(T::getInstance(), cascade, t.at(i));
+            TexExpander<typename T::ShadowPassShader>::template ExpandTex(*mesh, T::ShadowTextures);
+        shadow_custom_unroll_args<List...>::template exec<typename T::ShadowPassShader>(T::ShadowPassShader::getInstance(), cascade, t.at(i));
     }
 }
 
-template<typename Shader, MeshMaterial Mat, video::E_VERTEX_TYPE VT, typename...Args>
-void renderInstancedShadow(const std::vector<GLuint> TextureUnits, unsigned cascade, const std::vector<GLMesh *> &t, Args ...args)
+template<typename T, typename...Args>
+void renderInstancedShadow(unsigned cascade, Args ...args)
 {
-    glUseProgram(Shader::getInstance()->Program);
-    glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(VT, InstanceTypeShadow));
+    glUseProgram(T::InstancedShadowPassShader::getInstance()->Program);
+    glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(T::VertexType, InstanceTypeShadow));
+    std::vector<GLMesh *> &t = T::InstancedList::getInstance()->Shadows[cascade];
     for (unsigned i = 0; i < t.size(); i++)
     {
-        std::vector<uint64_t> Handles;
-        std::vector<GLuint> Textures;
         GLMesh *mesh = t[i];
 
-        for (unsigned j = 0; j < TextureUnits.size(); j++)
-            Textures.push_back(getTextureGLuint(mesh->textures[TextureUnits[j]]));
-
-        Shader::getInstance()->SetTextureUnits(Textures);
-        Shader::getInstance()->setUniforms(cascade, args...);
-        size_t tmp = ShadowPassCmd::getInstance()->Offset[cascade][Mat] + i;
+        TexExpander<typename T::InstancedShadowPassShader>::template ExpandTex(*mesh, T::ShadowTextures);
+        T::InstancedShadowPassShader::getInstance()->setUniforms(cascade, args...);
+        size_t tmp = ShadowPassCmd::getInstance()->Offset[cascade][T::MaterialType] + i;
         glDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_SHORT, (const void*)((tmp) * sizeof(DrawElementsIndirectCommand)));
     }
+
 }
 
-template<typename Shader, MeshMaterial Mat, video::E_VERTEX_TYPE VT, typename...Args>
+template<typename T, typename...Args>
 static void multidrawShadow(unsigned i, Args ...args)
 {
-    glUseProgram(Shader::getInstance()->Program);
-    glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(VT, InstanceTypeShadow));
-    if (ShadowPassCmd::getInstance()->Size[i][Mat])
+    glUseProgram(T::InstancedShadowPassShader::getInstance()->Program);
+    glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(T::VertexType, InstanceTypeShadow));
+    if (ShadowPassCmd::getInstance()->Size[i][T::MaterialType])
     {
-        Shader::getInstance()->setUniforms(i, args...);
-        glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_SHORT, (const void*)(ShadowPassCmd::getInstance()->Offset[i][Mat] * sizeof(DrawElementsIndirectCommand)), ShadowPassCmd::getInstance()->Size[i][Mat], sizeof(DrawElementsIndirectCommand));
+        T::InstancedShadowPassShader::getInstance()->setUniforms(i, args...);
+        glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_SHORT, 
+            (const void*)(ShadowPassCmd::getInstance()->Offset[i][T::MaterialType] * sizeof(DrawElementsIndirectCommand)),
+            (int)ShadowPassCmd::getInstance()->Size[i][T::MaterialType], sizeof(DrawElementsIndirectCommand));
     }
 }
 
 void IrrDriver::renderShadows()
 {
-    ScopedGPUTimer Timer(getGPUTimer(Q_SHADOWS));
-
     glDepthFunc(GL_LEQUAL);
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
-    glDisable(GL_ALPHA_TEST);
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(1.5, 0.);
     m_rtts->getShadowFBO().Bind();
@@ -831,38 +987,37 @@ void IrrDriver::renderShadows()
 
     for (unsigned cascade = 0; cascade < 4; cascade++)
     {
+        ScopedGPUTimer Timer(getGPUTimer(Q_SHADOWS_CASCADE0 + cascade));
 
-        std::vector<GLuint> noTexUnits;
-
-        renderShadow<MeshShader::ShadowShader, EVT_STANDARD, 1>(noTexUnits, cascade, ListMatDefault::getInstance()->Shadows[cascade]);
-        renderShadow<MeshShader::ShadowShader, EVT_STANDARD, 1>(noTexUnits, cascade, ListMatSphereMap::getInstance()->Shadows[cascade]);
-        renderShadow<MeshShader::ShadowShader, EVT_2TCOORDS, 1>(noTexUnits, cascade, ListMatDetails::getInstance()->Shadows[cascade]);
-        renderShadow<MeshShader::ShadowShader, EVT_2TCOORDS, 1>(noTexUnits, cascade, ListMatSplatting::getInstance()->Shadows[cascade]);
-        renderShadow<MeshShader::ShadowShader, EVT_TANGENTS, 1>(noTexUnits, cascade, ListMatNormalMap::getInstance()->Shadows[cascade]);
-        renderShadow<MeshShader::RefShadowShader, EVT_STANDARD, 1>(std::vector<GLuint>{ 0 }, cascade, ListMatAlphaRef::getInstance()->Shadows[cascade]);
-        renderShadow<MeshShader::RefShadowShader, EVT_STANDARD, 1>(std::vector<GLuint>{ 0 }, cascade, ListMatUnlit::getInstance()->Shadows[cascade]);
-        renderShadow<MeshShader::GrassShadowShader, EVT_STANDARD, 3, 1>(std::vector<GLuint>{ 0 }, cascade, ListMatGrass::getInstance()->Shadows[cascade]);
+        renderShadow<DefaultMaterial, 1>(cascade);
+        renderShadow<SphereMap, 1>(cascade);
+        renderShadow<DetailMat, 1>(cascade);
+        renderShadow<SplattingMat, 1>(cascade);
+        renderShadow<NormalMat, 1>(cascade);
+        renderShadow<AlphaRef, 1>(cascade);
+        renderShadow<UnlitMat, 1>(cascade);
+        renderShadow<GrassMat, 3, 1>(cascade);
 
         if (irr_driver->hasARB_draw_indirect())
             glBindBuffer(GL_DRAW_INDIRECT_BUFFER, ShadowPassCmd::getInstance()->drawindirectcmd);
 
         if (UserConfigParams::m_azdo)
         {
-            multidrawShadow<MeshShader::InstancedShadowShader, MAT_DEFAULT, video::EVT_STANDARD>(cascade);
-            multidrawShadow<MeshShader::InstancedShadowShader, MAT_DETAIL, video::EVT_2TCOORDS>(cascade);
-            multidrawShadow<MeshShader::InstancedShadowShader, MAT_NORMAL_MAP, video::EVT_TANGENTS>(cascade);
-            multidrawShadow<MeshShader::InstancedRefShadowShader, MAT_ALPHA_REF, video::EVT_STANDARD>(cascade);
-            multidrawShadow<MeshShader::InstancedRefShadowShader, MAT_UNLIT, video::EVT_STANDARD>(cascade);
-            multidrawShadow<MeshShader::InstancedGrassShadowShader, MAT_GRASS, video::EVT_STANDARD>(cascade, windDir);
+            multidrawShadow<DefaultMaterial>(cascade);
+            multidrawShadow<DetailMat>(cascade);
+            multidrawShadow<NormalMat>(cascade);
+            multidrawShadow<AlphaRef>(cascade);
+            multidrawShadow<UnlitMat>(cascade);
+            multidrawShadow<GrassMat>(cascade, windDir);
         }
         else if (irr_driver->hasARB_draw_indirect())
         {
-            renderInstancedShadow<MeshShader::InstancedShadowShader, MAT_DEFAULT, video::EVT_STANDARD>(noTexUnits, cascade, ListInstancedMatDefault::getInstance()->Shadows[cascade]);
-            renderInstancedShadow<MeshShader::InstancedShadowShader, MAT_DETAIL, video::EVT_2TCOORDS>(noTexUnits, cascade, ListInstancedMatDetails::getInstance()->Shadows[cascade]);
-            renderInstancedShadow<MeshShader::InstancedRefShadowShader, MAT_ALPHA_REF, video::EVT_STANDARD>(std::vector < GLuint > { 0 }, cascade, ListInstancedMatAlphaRef::getInstance()->Shadows[cascade]);
-            renderInstancedShadow<MeshShader::InstancedRefShadowShader, MAT_UNLIT, video::EVT_STANDARD>(std::vector < GLuint > { 0 }, cascade, ListInstancedMatUnlit::getInstance()->Shadows[cascade]);
-            renderInstancedShadow<MeshShader::InstancedGrassShadowShader, MAT_GRASS, video::EVT_STANDARD>(std::vector < GLuint > { 0 }, cascade, ListInstancedMatGrass::getInstance()->Shadows[cascade], windDir);
-            renderInstancedShadow<MeshShader::InstancedShadowShader, MAT_NORMAL_MAP, video::EVT_TANGENTS>(noTexUnits, cascade, ListInstancedMatNormalMap::getInstance()->Shadows[cascade]);
+            renderInstancedShadow<DefaultMaterial>(cascade);
+            renderInstancedShadow<DetailMat>(cascade);
+            renderInstancedShadow<AlphaRef>(cascade);
+            renderInstancedShadow<UnlitMat>(cascade);
+            renderInstancedShadow<GrassMat>(cascade, windDir);
+            renderInstancedShadow<NormalMat>(cascade);
         }
     }
 
@@ -894,54 +1049,55 @@ struct rsm_custom_unroll_args<N, List...>
     }
 };
 
-template<typename T, enum E_VERTEX_TYPE VertexType, int... Selector, typename... Args>
-void drawRSM(const core::matrix4 & rsm_matrix, const std::vector<GLuint> &TextureUnits, const std::vector<STK::Tuple<Args...> > &t)
+template<typename T, int... Selector>
+void drawRSM(const core::matrix4 & rsm_matrix)
 {
-    glUseProgram(T::getInstance()->Program);
+    glUseProgram(T::RSMShader::getInstance()->Program);
     if (irr_driver->hasARB_base_instance())
-        glBindVertexArray(VAOManager::getInstance()->getVAO(VertexType));
+        glBindVertexArray(VAOManager::getInstance()->getVAO(T::VertexType));
+    auto t = T::List::getInstance()->RSM;
     for (unsigned i = 0; i < t.size(); i++)
     {
         std::vector<GLuint> Textures;
         GLMesh *mesh = STK::tuple_get<0>(t.at(i));
         if (!irr_driver->hasARB_base_instance())
             glBindVertexArray(mesh->vao);
-        for (unsigned j = 0; j < TextureUnits.size(); j++)
-            Textures.push_back(getTextureGLuint(mesh->textures[TextureUnits[j]]));
-        T::getInstance()->SetTextureUnits(Textures);
-        rsm_custom_unroll_args<Selector...>::template exec<T>(rsm_matrix, t.at(i));
+        if (UserConfigParams::m_azdo)
+            HandleExpander<typename T::RSMShader>::template Expand(mesh->TextureHandles, T::RSMTextures);
+        else
+            TexExpander<typename T::RSMShader>::template ExpandTex(*mesh, T::RSMTextures);
+        rsm_custom_unroll_args<Selector...>::template exec<typename T::RSMShader>(rsm_matrix, t.at(i));
     }
 }
 
-template<typename Shader, MeshMaterial Mat, video::E_VERTEX_TYPE VT, typename...Args>
-void renderRSMShadow(const std::vector<GLuint> TextureUnits, const std::vector<GLMesh *> &t, Args ...args)
+template<typename T, typename...Args>
+void renderRSMShadow(Args ...args)
 {
-    glUseProgram(Shader::getInstance()->Program);
-    glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(VT, InstanceTypeRSM));
+    glUseProgram(T::InstancedRSMShader::getInstance()->Program);
+    glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(T::VertexType, InstanceTypeRSM));
+    auto t = T::InstancedList::getInstance()->RSM;
     for (unsigned i = 0; i < t.size(); i++)
     {
-        std::vector<uint64_t> Handles;
         std::vector<GLuint> Textures;
         GLMesh *mesh = t[i];
 
-        for (unsigned j = 0; j < TextureUnits.size(); j++)
-            Textures.push_back(getTextureGLuint(mesh->textures[TextureUnits[j]]));
-
-        Shader::getInstance()->SetTextureUnits(Textures);
-        Shader::getInstance()->setUniforms(args...);
-        glDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_SHORT, (const void*)((RSMPassCmd::getInstance()->Offset[Mat] + i)* sizeof(DrawElementsIndirectCommand)));
+        TexExpander<typename T::InstancedRSMShader>::template ExpandTex(*mesh, T::RSMTextures);
+        T::InstancedRSMShader::getInstance()->setUniforms(args...);
+        glDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_SHORT, (const void*)((RSMPassCmd::getInstance()->Offset[T::MaterialType] + i)* sizeof(DrawElementsIndirectCommand)));
     }
 }
 
-template<typename Shader, MeshMaterial Mat, enum E_VERTEX_TYPE VertexType, typename... Args>
+template<typename T, typename... Args>
 void multidrawRSM(Args...args)
 {
-    glUseProgram(Shader::getInstance()->Program);
-    glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(VertexType, InstanceTypeRSM));
-    if (RSMPassCmd::getInstance()->Size[Mat])
+    glUseProgram(T::InstancedRSMShader::getInstance()->Program);
+    glBindVertexArray(VAOManager::getInstance()->getInstanceVAO(T::VertexType, InstanceTypeRSM));
+    if (RSMPassCmd::getInstance()->Size[T::MaterialType])
     {
-        Shader::getInstance()->setUniforms(args...);
-        glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_SHORT, (const void*)(RSMPassCmd::getInstance()->Offset[Mat] * sizeof(DrawElementsIndirectCommand)), RSMPassCmd::getInstance()->Size[Mat], sizeof(DrawElementsIndirectCommand));
+        T::InstancedRSMShader::getInstance()->setUniforms(args...);
+        glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_SHORT,
+            (const void*)(RSMPassCmd::getInstance()->Offset[T::MaterialType] * sizeof(DrawElementsIndirectCommand)),
+            (int)RSMPassCmd::getInstance()->Size[T::MaterialType], sizeof(DrawElementsIndirectCommand));
     }
 }
 
@@ -951,30 +1107,30 @@ void IrrDriver::renderRSM()
     m_rtts->getRSM().Bind();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    drawRSM<MeshShader::RSMShader, EVT_STANDARD, 3, 1>(rsm_matrix, std::vector<GLuint>{ 0 }, ListMatDefault::getInstance()->RSM);
-    drawRSM<MeshShader::RSMShader, EVT_STANDARD, 3, 1>(rsm_matrix, std::vector<GLuint>{ 0 }, ListMatAlphaRef::getInstance()->RSM);
-    drawRSM<MeshShader::RSMShader, EVT_TANGENTS, 3, 1>(rsm_matrix, std::vector<GLuint>{ 0 }, ListMatNormalMap::getInstance()->RSM);
-    drawRSM<MeshShader::RSMShader, EVT_STANDARD, 3, 1>(rsm_matrix, std::vector<GLuint>{ 0 }, ListMatUnlit::getInstance()->RSM);
-    drawRSM<MeshShader::RSMShader, EVT_2TCOORDS, 3, 1>(rsm_matrix, std::vector<GLuint>{ 0 }, ListMatDetails::getInstance()->RSM);
-    drawRSM<MeshShader::SplattingRSMShader, EVT_2TCOORDS, 1>(rsm_matrix, createVector<GLuint>(1, 2, 3, 4, 5), ListMatSplatting::getInstance()->RSM);
+    drawRSM<DefaultMaterial, 3, 1>(rsm_matrix);
+    drawRSM<AlphaRef, 3, 1>(rsm_matrix);
+    drawRSM<NormalMat, 3, 1>(rsm_matrix);
+    drawRSM<UnlitMat, 3, 1>(rsm_matrix);
+    drawRSM<DetailMat, 3, 1>(rsm_matrix);
+    drawRSM<SplattingMat, 1>(rsm_matrix);
 
     if (irr_driver->hasARB_draw_indirect())
         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, RSMPassCmd::getInstance()->drawindirectcmd);
 
     if (UserConfigParams::m_azdo)
     {
-        multidrawRSM<MeshShader::InstancedRSMShader, MAT_DEFAULT, video::EVT_STANDARD>(rsm_matrix);
-        multidrawRSM<MeshShader::InstancedRSMShader, MAT_NORMAL_MAP, video::EVT_TANGENTS>(rsm_matrix);
-        multidrawRSM<MeshShader::InstancedRSMShader, MAT_ALPHA_REF, video::EVT_STANDARD>(rsm_matrix);
-        multidrawRSM<MeshShader::InstancedRSMShader, MAT_UNLIT, video::EVT_STANDARD>(rsm_matrix);
-        multidrawRSM<MeshShader::InstancedRSMShader, MAT_DETAIL, video::EVT_2TCOORDS>(rsm_matrix);
+        multidrawRSM<DefaultMaterial>(rsm_matrix);
+        multidrawRSM<NormalMat>(rsm_matrix);
+        multidrawRSM<AlphaRef>(rsm_matrix);
+        multidrawRSM<UnlitMat>(rsm_matrix);
+        multidrawRSM<DetailMat>(rsm_matrix);
     }
     else if (irr_driver->hasARB_draw_indirect())
     {
-        renderRSMShadow<MeshShader::InstancedRSMShader, MAT_DEFAULT, video::EVT_STANDARD>(std::vector < GLuint > { 0 }, ListInstancedMatDefault::getInstance()->RSM, rsm_matrix);
-        renderRSMShadow<MeshShader::InstancedRSMShader, MAT_ALPHA_REF, video::EVT_STANDARD>(std::vector < GLuint > { 0 }, ListInstancedMatAlphaRef::getInstance()->RSM, rsm_matrix);
-        renderRSMShadow<MeshShader::InstancedRSMShader, MAT_UNLIT, video::EVT_STANDARD>(std::vector < GLuint > { 0 }, ListInstancedMatUnlit::getInstance()->RSM, rsm_matrix);
-        renderRSMShadow<MeshShader::InstancedRSMShader, MAT_NORMAL_MAP, video::EVT_TANGENTS>(std::vector < GLuint > { 0 }, ListInstancedMatNormalMap::getInstance()->RSM, rsm_matrix);
-        renderRSMShadow<MeshShader::InstancedRSMShader, MAT_DETAIL, video::EVT_2TCOORDS>(std::vector < GLuint > { 0 }, ListInstancedMatDetails::getInstance()->RSM, rsm_matrix);
+        renderRSMShadow<DefaultMaterial>(rsm_matrix);
+        renderRSMShadow<AlphaRef>(rsm_matrix);
+        renderRSMShadow<UnlitMat>(rsm_matrix);
+        renderRSMShadow<NormalMat>(rsm_matrix);
+        renderRSMShadow<DetailMat>(rsm_matrix);
     }
 }

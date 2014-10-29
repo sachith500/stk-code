@@ -17,9 +17,6 @@
 
 #include "modes/soccer_world.hpp"
 
-#include <string>
-#include <IMeshSceneNode.h>
-
 #include "audio/music_manager.hpp"
 #include "audio/sfx_base.hpp"
 #include "io/file_manager.hpp"
@@ -35,6 +32,10 @@
 #include "tracks/track.hpp"
 #include "tracks/track_object_manager.hpp"
 #include "utils/constants.hpp"
+
+#include <IMeshSceneNode.h>
+
+#include <string>
 
 //-----------------------------------------------------------------------------
 /** Constructor. Sets up the clock mode etc.
@@ -59,7 +60,7 @@ SoccerWorld::SoccerWorld() : WorldWithRank()
  */
 SoccerWorld::~SoccerWorld()
 {
-    sfx_manager->deleteSFX(m_goal_sound);
+    m_goal_sound->deleteSFX();
 }   // ~SoccerWorld
 
 //-----------------------------------------------------------------------------
@@ -80,7 +81,7 @@ void SoccerWorld::init()
         exit(1);
     }
     m_goal_target = race_manager->getMaxGoal();
-    m_goal_sound = sfx_manager->createSoundSource("goal_scored");
+    m_goal_sound = SFXManager::get()->createSoundSource("goal_scored");
 
 }   // init
 
@@ -120,7 +121,7 @@ void SoccerWorld::reset()
     }
 
     if (m_goal_sound != NULL &&
-        m_goal_sound->getStatus() == SFXManager::SFX_PLAYING)
+        m_goal_sound->getStatus() == SFXBase::SFX_PLAYING)
     {
         m_goal_sound->stop();
     }
@@ -400,7 +401,7 @@ void SoccerWorld::moveKartAfterRescue(AbstractKart* kart)
 /** Set position and team for the karts */
 void SoccerWorld::initKartList()
 {
-    const unsigned int kart_amount = m_karts.size();
+    const unsigned int kart_amount = (unsigned int)m_karts.size();
 
     int team_karts_amount[NB_SOCCER_TEAMS];
     memset(team_karts_amount, 0, sizeof(team_karts_amount));
@@ -435,6 +436,11 @@ void SoccerWorld::initKartList()
     for(unsigned int n=0; n<kart_amount; n++)
     {
         SoccerTeam team = race_manager->getLocalKartInfo(n).getSoccerTeam();
+#ifdef DEBUG
+        // In debug mode it's possible to play soccer with a single player
+        // (in artist debug mode). Avoid overwriting memory in this case.
+        if(team==SOCCER_TEAM_NONE) team=SOCCER_TEAM_RED;
+#endif
         m_karts[n]->setPosition(team_cur_position[team]);
         team_cur_position[team]++;
     }   // next kart

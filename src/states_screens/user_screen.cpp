@@ -73,6 +73,15 @@ void BaseUserScreen::init()
     m_info_widget = getWidget<LabelWidget>("message");
     assert(m_info_widget);
 
+    // The behaviour of the screen is slightly different at startup, i.e.
+    // when it is the first screen: cancel will exit the game, and in
+    // this case no 'back' error should be shown.
+    bool is_first_screen = StateManager::get()->getMenuStackSize()==1;
+    getWidget<IconButtonWidget>("back")->setVisible(!is_first_screen);
+    getWidget<IconButtonWidget>("cancel")->setLabel(is_first_screen 
+                                                    ? _("Exit game") 
+                                                    : _("Cancel")      );
+
     m_sign_out_name = "";
     m_sign_in_name  = "";
 
@@ -154,10 +163,13 @@ void BaseUserScreen::selectUser(int index)
 
     m_players->setSelection(StringUtils::toString(index), PLAYER_ID_GAME_MASTER,
                             /*focusIt*/ true);
+    
+    m_username_tb->setText(profile->getLastOnlineName());
+    // Delete a password that might have been typed for another user
+    m_password_tb->setText("");
 
     // Last game was not online, so make the offline settings the default
     // (i.e. unckeck online checkbox, and make entry fields invisible).
-    
     if (!profile->wasOnlineLastTime() || profile->getLastOnlineName() == "")
     {
         m_online_cb->setState(false);
@@ -168,7 +180,6 @@ void BaseUserScreen::selectUser(int index)
     // Now last use was with online --> Display the saved data
     m_online_cb->setState(true);
     makeEntryFieldsVisible();
-    m_username_tb->setText(profile->getLastOnlineName());
     getWidget<CheckBoxWidget>("remember-user")->setState(
         profile->rememberPassword());
     if(profile->getLastOnlineName().size()>0)
@@ -203,7 +214,15 @@ void BaseUserScreen::makeEntryFieldsVisible()
     getWidget<LabelWidget>("label_remember")->setVisible(online);
     getWidget<CheckBoxWidget>("remember-user")->setVisible(online);
     PlayerProfile *player = getSelectedPlayer();
-    if(player && player->hasSavedSession() && online)
+
+    // Don't show the password fields if the player wants to be online
+    // and either is the current player and logged in (no need to enter a
+    // password then) or has a saved session.
+    if(player && online  &&
+        (player->hasSavedSession() || 
+          (player==PlayerManager::getCurrentPlayer() && player->isLoggedIn() ) 
+        ) 
+      )
     {
         // If we show the online login fields, but the player has a
         // saved session, don't show the password field.
@@ -257,7 +276,7 @@ void BaseUserScreen::eventCallback(Widget* widget,
                 m_info_widget->setText(
                     _("Internet access is disabled, please enable it in the options"),
                     true);
-                sfx_manager->quickSound( "anvil" );
+                SFXManager::get()->quickSound( "anvil" );
                 m_online_cb->setState(false);
             }
         }
@@ -273,7 +292,7 @@ void BaseUserScreen::eventCallback(Widget* widget,
         }   // button==ok
         else if (button == "new_user")
         {
-            StateManager::get()->pushScreen(RegisterScreen::getInstance());
+            RegisterScreen::getInstance()->push();
             // Make sure the new user will have an empty online name field
             // that can also be edited.
             m_username_tb->setText("");
@@ -281,8 +300,8 @@ void BaseUserScreen::eventCallback(Widget* widget,
         }
         else if (button == "cancel")
         {
-            StateManager::get()->popMenu();
-            onEscapePressed();
+            // EscapePressed will pop this screen.
+            StateManager::get()->escapePressed();
         }
         else if (button == "recover")
         {
@@ -292,7 +311,7 @@ void BaseUserScreen::eventCallback(Widget* widget,
         {
             PlayerProfile *cp = getSelectedPlayer();
             RegisterScreen::getInstance()->setRename(cp);
-            StateManager::get()->pushScreen(RegisterScreen::getInstance());
+            RegisterScreen::getInstance()->push();
             // Init will automatically be called, which
             // refreshes the player list
         }
@@ -396,7 +415,7 @@ void BaseUserScreen::login()
         if (m_password_tb->getText() == "")
         {
             m_info_widget->setText(_("You need to enter a password."), true);
-            sfx_manager->quickSound("anvil");
+            SFXManager::get()->quickSound("anvil");
             m_options_widget->setActivated();
             return;
         }
@@ -420,17 +439,6 @@ void BaseUserScreen::onUpdate(float dt)
                               : _(L"Signing in '%s'", m_sign_in_name.c_str());
         m_info_widget->setText(StringUtils::loadingDots(message.c_str()),
                                false                                      );
-    }
-    PlayerProfile *player = getSelectedPlayer();
-    if(player)
-    {
-        // If the player changes the online name, clear the saved session
-        // flag, and make the password field visible again.
-        if (m_username_tb->getText()!=player->getLastOnlineName())
-        {
-            player->clearSession();
-            makeEntryFieldsVisible();
-        }
     }
 }   // onUpdate
 
@@ -464,7 +472,7 @@ void BaseUserScreen::loginError(const irr::core::stringw & error_message)
         player->clearSession();
     player->setLastOnlineName("");
     makeEntryFieldsVisible();
-    sfx_manager->quickSound("anvil");
+    SFXManager::get()->quickSound("anvil");
     m_info_widget->setErrorColor();
     m_info_widget->setText(error_message, false);
     m_options_widget->setActivated();
@@ -494,7 +502,7 @@ void BaseUserScreen::logoutError(const irr::core::stringw & error_message)
     if(player && player->hasSavedSession())
         player->clearSession();
     makeEntryFieldsVisible();
-    sfx_manager->quickSound("anvil");
+    SFXManager::get()->quickSound("anvil");
     m_info_widget->setErrorColor();
     m_info_widget->setText(error_message, false);
     m_options_widget->setActivated();

@@ -123,7 +123,6 @@ Track::Track(const std::string &filename)
     m_color_inlevel         = core::vector3df(0.0,1.0, 255.0);
     m_color_outlevel        = core::vector2df(0.0, 255.0);
     m_clouds                = false;
-    m_lensflare             = false;
     m_godrays               = false;
     m_displacement_speed    = 1.0f;
     m_caustics_speed        = 1.0f;
@@ -429,6 +428,17 @@ void Track::cleanup()
         }
 #endif
     }   // if verbose
+
+#ifdef __DEBUG_DUMP_MESH_CACHE_AFTER_CLEANUP__
+    scene::IMeshCache* meshCache = irr_driver->getSceneManager()->getMeshCache();
+    int count = meshCache->getMeshCount();
+    for (int i = 0; i < count; i++)
+    {
+        scene::IAnimatedMesh* mesh = meshCache->getMeshByIndex(i);
+        io::SNamedPath path = meshCache->getMeshName(mesh);
+        Log::info("CACHE", "[%i] %s", i, path.getPath().c_str());
+    }
+#endif
 }   // cleanup
 
 //-----------------------------------------------------------------------------
@@ -486,7 +496,6 @@ void Track::loadTrackInfo()
     root->get("clouds",                &m_clouds);
     root->get("bloom",                 &m_bloom);
     root->get("bloom-threshold",       &m_bloom_threshold);
-    root->get("lens-flare",            &m_lensflare);
     root->get("shadows",               &m_shadows);
     root->get("displacement-speed",    &m_displacement_speed);
     root->get("caustics-speed",        &m_caustics_speed);
@@ -727,9 +736,6 @@ void Track::createPhysicsModel(unsigned int main_track_count)
  */
 void Track::convertTrackToBullet(scene::ISceneNode *node)
 {
-    const core::vector3df &hpr = node->getRotation();
-    const core::vector3df &scale = node->getScale();
-
     if (node->getType() == scene::ESNT_LOD_NODE)
     {
         node = ((LODNode*)node)->getFirstNode();
@@ -744,8 +750,6 @@ void Track::convertTrackToBullet(scene::ISceneNode *node)
 
     std::vector<core::matrix4> matrices;
     matrices.push_back(node->getAbsoluteTransformation());
-
-    const core::vector3df &pos   = node->getAbsolutePosition();
 
     scene::IMesh *mesh;
     // In case of readonly materials we have to get the material from
@@ -997,7 +1001,7 @@ bool Track::loadMainTrack(const XMLNode &root)
 
     // The merged mesh is grabbed by the octtree, so we don't need
     // to keep a reference to it.
-    scene::ISceneNode *scene_node = irr_driver->addMesh(tangent_mesh);
+    scene::ISceneNode *scene_node = irr_driver->addMesh(tangent_mesh, "track_main");
     //scene::IMeshSceneNode *scene_node = irr_driver->addOctTree(merged_mesh);
     // We should drop the merged mesh (since it's now referred to in the
     // scene node), but then we need to grab it since it's in the
@@ -1211,7 +1215,7 @@ bool Track::loadMainTrack(const XMLNode &root)
 
             // create a node out of this mesh just for bullet; delete it after, normal maps are special
             // and require tangent meshes
-            scene_node = irr_driver->addMesh(original_mesh);
+            scene_node = irr_driver->addMesh(original_mesh, "original_mesh");
 
             scene_node->setPosition(xyz);
             scene_node->setRotation(hpr);
@@ -1226,7 +1230,7 @@ bool Track::loadMainTrack(const XMLNode &root)
             irr_driver->grabAllTextures(mesh);
 
             m_all_cached_meshes.push_back(mesh);
-            scene_node = irr_driver->addMesh(mesh);
+            scene_node = irr_driver->addMesh(mesh, "original_mesh_with_tangents");
             scene_node->setPosition(xyz);
             scene_node->setRotation(hpr);
             scene_node->setScale(scale);
@@ -1274,7 +1278,7 @@ bool Track::loadMainTrack(const XMLNode &root)
             m_all_cached_meshes.push_back(a_mesh);
             irr_driver->grabAllTextures(a_mesh);
             a_mesh->grab();
-            scene_node = irr_driver->addMesh(a_mesh);
+            scene_node = irr_driver->addMesh(a_mesh, model_name);
             scene_node->setPosition(xyz);
             scene_node->setRotation(hpr);
             scene_node->setScale(scale);
@@ -1417,6 +1421,9 @@ void Track::handleAnimatedTextures(scene::ISceneNode *node, const XMLNode &xml)
             continue;
         }
 
+        // to lower case, for case-insensitive comparison
+        name = StringUtils::toLowerCase(name);
+
         for(unsigned int i=0; i<node->getMaterialCount(); i++)
         {
             video::SMaterial &irrMaterial=node->getMaterial(i);
@@ -1424,9 +1431,13 @@ void Track::handleAnimatedTextures(scene::ISceneNode *node, const XMLNode &xml)
             {
                 video::ITexture* t=irrMaterial.getTexture(j);
                 if(!t) continue;
-                const std::string texture_name =
+                std::string texture_name =
                     StringUtils::getBasename(core::stringc(t->getName()).c_str());
-                if(texture_name!=name) continue;
+
+                // to lower case, for case-insensitive comparison
+                texture_name = StringUtils::toLowerCase(texture_name);
+
+                if (texture_name != name) continue;
                 core::matrix4 *m = &irrMaterial.getTextureMatrix(j);
                 m_animated_textures.push_back(new MovingTexture(m, *texture_node));
             }   // for j<MATERIAL_MAX_TEXTURES
@@ -1530,7 +1541,7 @@ void Track::createWater(const XMLNode &node)
     }
     else
     {*/
-        scene_node = irr_driver->addMesh(mesh);
+        scene_node = irr_driver->addMesh(mesh, "water");
     //}
 
     if(!mesh || !scene_node)
@@ -1718,7 +1729,7 @@ void Track::loadTrackModel(bool reverse_track, unsigned int mode_id)
     }
 
     loadMainTrack(*root);
-    unsigned int main_track_count = m_all_nodes.size();
+    unsigned int main_track_count = (unsigned int)m_all_nodes.size();
 
     ModelDefinitionLoader model_def_loader(this);
 
@@ -1736,18 +1747,9 @@ void Track::loadTrackModel(bool reverse_track, unsigned int mode_id)
         }
     }
 
-    std::map<std::string, XMLNode*> library_nodes;
-    loadObjects(root, path, model_def_loader, true, NULL, library_nodes);
+    loadObjects(root, path, model_def_loader, true, NULL);
 
-    // Cleanup library nodes
-    for (std::map<std::string, XMLNode*>::iterator it = library_nodes.begin();
-         it != library_nodes.end(); it++)
-    {
-        delete it->second;
-
-        file_manager->popTextureSearchPath();
-        file_manager->popModelSearchPath();
-    }
+    model_def_loader.cleanLibraryNodesAfterLoad();
 
     // Init all track objects
     m_track_object_manager->init();
@@ -1768,7 +1770,7 @@ void Track::loadTrackModel(bool reverse_track, unsigned int mode_id)
     }
 
     // Enable for for all track nodes if fog is used
-    const unsigned int count = m_all_nodes.size();
+    const unsigned int count = (int)m_all_nodes.size();
     for(unsigned int i=0; i<count; i++)
     {
         adjustForFog(m_all_nodes[i]);
@@ -1912,8 +1914,7 @@ void Track::loadTrackModel(bool reverse_track, unsigned int mode_id)
 //-----------------------------------------------------------------------------
 
 void Track::loadObjects(const XMLNode* root, const std::string& path, ModelDefinitionLoader& model_def_loader,
-                        bool create_lod_definitions, scene::ISceneNode* parent,
-                        std::map<std::string, XMLNode*>& library_nodes)
+                        bool create_lod_definitions, scene::ISceneNode* parent)
 {
     unsigned int start_position_counter = 0;
 
@@ -1925,74 +1926,9 @@ void Track::loadObjects(const XMLNode* root, const std::string& path, ModelDefin
         // The track object was already converted before the loop, and the
         // default start was already used, too - so ignore those.
         if (name == "track" || name == "default-start") continue;
-        if (name == "object")
+        if (name == "object" || name == "library")
         {
             m_track_object_manager->add(*node, parent, model_def_loader);
-        }
-        else if (name == "library")
-        {
-            std::string name;
-            node->get("name", &name);
-
-            core::vector3df xyz;
-            node->get("xyz", &xyz);
-
-            core::vector3df hpr;
-            node->get("hpr", &hpr);
-
-            core::vector3df scale;
-            node->get("scale", &scale);
-
-            XMLNode* libroot;
-            std::string lib_path = file_manager->getAsset("library/" + name);
-            bool create_lod_definitions = true;
-
-            if (library_nodes.find(name) == library_nodes.end())
-            {
-                std::string node_path = "library/" + name + "/node.xml";
-                std::string lib_node_path = file_manager->getAsset(node_path);
-                libroot = file_manager->createXMLTree(lib_node_path);
-                if (libroot == NULL)
-                {
-                    Log::error("Track", "Cannot find library '%s'", node_path.c_str());
-                    continue;
-                }
-
-                file_manager->pushTextureSearchPath(lib_path + "/");
-                file_manager->pushModelSearchPath  (lib_path);
-                material_manager->pushTempMaterial(lib_path + "/materials.xml");
-                library_nodes[name] = libroot;
-
-                // Load LOD groups
-                const XMLNode *lod_xml_node = libroot->getNode("lod");
-                if (lod_xml_node != NULL)
-                {
-                    for (unsigned int i = 0; i < lod_xml_node->getNumNodes(); i++)
-                    {
-                        const XMLNode* lod_group_xml = lod_xml_node->getNode(i);
-                        for (unsigned int j = 0; j < lod_group_xml->getNumNodes(); j++)
-                        {
-                            model_def_loader.addModelDefinition(lod_group_xml->getNode(j));
-                        }
-                    }
-                }
-            }
-            else
-            {
-                libroot = library_nodes[name];
-                create_lod_definitions = false; // LOD definitions are already created, don't create them again
-            }
-
-            scene::ISceneNode* parent = irr_driver->getSceneManager()->addEmptySceneNode();
-#ifdef DEBUG
-            parent->setName(("libnode_" + name).c_str());
-#endif
-            parent->setPosition(xyz);
-            parent->setRotation(hpr);
-            parent->setScale(scale);
-            parent->updateAbsolutePosition();
-            loadObjects(libroot, lib_path, model_def_loader, create_lod_definitions, parent, library_nodes);
-            //m_all_nodes.push_back(parent);
         }
         else if (name == "water")
         {
@@ -2075,6 +2011,10 @@ void Track::loadObjects(const XMLNode* root, const std::string& path, ModelDefin
             // handled above
         }
         else if (name == "lod")
+        {
+            // handled above
+        }
+        else if (name == "lightshaft")
         {
             // handled above
         }

@@ -19,11 +19,12 @@
 #include "states_screens/race_result_gui.hpp"
 
 #include "audio/music_manager.hpp"
+#include "audio/sfx_manager.hpp"
 #include "audio/sfx_base.hpp"
 #include "challenges/unlock_manager.hpp"
 #include "config/player_manager.hpp"
 #include "config/user_config.hpp"
-#include "graphics/glwrap.hpp"
+#include "graphics/2dutils.hpp"
 #include "graphics/material.hpp"
 #include "guiengine/engine.hpp"
 #include "guiengine/modaldialog.hpp"
@@ -81,7 +82,7 @@ void RaceResultGUI::init()
     getWidget("bottom")->setVisible(false);
 
     music_manager->stopMusic();
-    m_finish_sound = sfx_manager->quickSound("race_finish");
+    m_finish_sound = SFXManager::get()->quickSound("race_finish");
 
     // Calculate how many track screenshots can fit into the "result-table" widget
     GUIEngine::Widget* result_table = getWidget("result-table");
@@ -93,7 +94,7 @@ void RaceResultGUI::init()
     // Calculate screenshot scrolling parameters
     const std::vector<std::string> tracks =
         race_manager->getGrandPrix().getTrackNames();
-    int n_tracks = tracks.size();
+    int n_tracks = (int)tracks.size();
     int currentTrack = race_manager->getTrackNumber();
     m_start_track = currentTrack;
     if (n_tracks > m_max_tracks)
@@ -115,7 +116,7 @@ void RaceResultGUI::tearDown()
     m_font->setMonospaceDigits(m_was_monospace);
 
     if (m_finish_sound != NULL &&
-        m_finish_sound->getStatus() == SFXManager::SFX_PLAYING)
+        m_finish_sound->getStatus() == SFXBase::SFX_PLAYING)
     {
         m_finish_sound->stop();
     }
@@ -157,7 +158,7 @@ void RaceResultGUI::enableAllButtons()
 
     // If something was unlocked
     // -------------------------
-    int n = PlayerManager::getCurrentPlayer()->getRecentlyCompletedChallenges().size();
+    int n = (int)PlayerManager::getCurrentPlayer()->getRecentlyCompletedChallenges().size();
     if(n>0)
     {
         top->setText(n==1 ? _("You completed a challenge!")
@@ -226,7 +227,7 @@ void RaceResultGUI::eventCallback(GUIEngine::Widget* widget,
     // If something was unlocked, the 'continue' button was
     // actually used to display "Show unlocked feature(s)" text.
     // ---------------------------------------------------------
-    int n = PlayerManager::getCurrentPlayer()
+    int n = (int)PlayerManager::getCurrentPlayer()
                                 ->getRecentlyCompletedChallenges().size();
     if(n>0)
     {
@@ -288,7 +289,7 @@ void RaceResultGUI::eventCallback(GUIEngine::Widget* widget,
 
                 scene->addTrophy(race_manager->getDifficulty());
                 scene->findWhatWasUnlocked(race_manager->getDifficulty());
-                StateManager::get()->pushScreen(scene);
+                scene->push();
                 race_manager->setAIKartOverride("");
 
                 std::vector<std::string> parts;
@@ -392,6 +393,7 @@ void RaceResultGUI::eventCallback(GUIEngine::Widget* widget,
 
 void RaceResultGUI::onConfirm()
 {
+    race_manager->saveGP(); // Save the aborted GP
     GUIEngine::ModalDialog::dismiss();
     cleanupGPProgress();
     StateManager::get()->popMenu();
@@ -599,7 +601,7 @@ void RaceResultGUI::onUpdate(float dt)
     renderGlobal(dt);
 
     if (m_finish_sound != NULL &&
-        m_finish_sound->getStatus() != SFXManager::SFX_PLAYING)
+        m_finish_sound->getStatus() != SFXBase::SFX_PLAYING)
     {
         try
         {
@@ -626,7 +628,7 @@ void RaceResultGUI::renderGlobal(float dt)
 
     m_timer               += dt;
     assert(World::getWorld()->getPhase()==WorldStatus::RESULT_DISPLAY_PHASE);
-    unsigned int num_karts = m_all_row_infos.size();
+    unsigned int num_karts = (unsigned int)m_all_row_infos.size();
 
     // First: Update the finite state machine
     // ======================================

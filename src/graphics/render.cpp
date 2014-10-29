@@ -20,38 +20,26 @@
 
 #include "config/user_config.hpp"
 #include "graphics/callbacks.hpp"
-#include "graphics/camera.hpp"
 #include "graphics/glwrap.hpp"
 #include "graphics/lens_flare.hpp"
-#include "graphics/light.hpp"
 #include "graphics/lod_node.hpp"
-#include "graphics/material_manager.hpp"
-#include "graphics/particle_kind_manager.hpp"
-#include "graphics/per_camera_node.hpp"
 #include "graphics/post_processing.hpp"
 #include "graphics/referee.hpp"
 #include "graphics/rtts.hpp"
 #include "graphics/screenquad.hpp"
 #include "graphics/shaders.hpp"
 #include "graphics/stkmeshscenenode.hpp"
-#include "graphics/wind.hpp"
-#include "io/file_manager.hpp"
-#include "items/item.hpp"
 #include "items/item_manager.hpp"
 #include "modes/world.hpp"
 #include "physics/physics.hpp"
 #include "physics/triangle_mesh.hpp"
 #include "tracks/track.hpp"
-#include "utils/constants.hpp"
-#include "utils/helpers.hpp"
-#include "utils/log.hpp"
 #include "utils/profiler.hpp"
 #include "stkscenemanager.hpp"
 #include "items/powerup_manager.hpp"
 #include "../../lib/irrlicht/source/Irrlicht/CSceneManager.h"
 #include "../../lib/irrlicht/source/Irrlicht/os.h"
 
-#include <algorithm>
 #include <limits>
 
 #define MAX2(a, b) ((a) > (b) ? (a) : (b))
@@ -151,6 +139,20 @@ void IrrDriver::renderGLSL(float dt)
     RaceGUIBase *rg = world->getRaceGUI();
     if (rg) rg->update(dt);
 
+    if (!UserConfigParams::m_dynamic_lights)
+    {
+        SColor clearColor(0, 150, 150, 150);
+        if (World::getWorld() != NULL)
+            clearColor = World::getWorld()->getClearColor();
+
+        glClear(GL_COLOR_BUFFER_BIT);
+        glDepthMask(GL_TRUE);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClearColor(clearColor.getRed() / 255.f, clearColor.getGreen() / 255.f,
+            clearColor.getBlue() / 255.f, clearColor.getAlpha() / 255.f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    }
+
     for(unsigned int cam = 0; cam < Camera::getNumCameras(); cam++)
     {
         Camera * const camera = Camera::getCamera(cam);
@@ -160,7 +162,8 @@ void IrrDriver::renderGLSL(float dt)
         oss << "drawAll() for kart " << cam;
         PROFILER_PUSH_CPU_MARKER(oss.str().c_str(), (cam+1)*60,
                                  0x00, 0x00);
-        camera->activate();
+        if (!UserConfigParams::m_dynamic_lights)
+            camera->activate();
         rg->preRenderCallback(camera);   // adjusts start referee
         m_scene_manager->setActiveCamera(camnode);
 
@@ -171,6 +174,8 @@ void IrrDriver::renderGLSL(float dt)
 
         // TODO: put this outside of the rendering loop
         generateDiffuseCoefficients();
+        if (!UserConfigParams::m_dynamic_lights)
+            glEnable(GL_FRAMEBUFFER_SRGB);
 
         PROFILER_PUSH_CPU_MARKER("Update Light Info", 0xFF, 0x0, 0x0);
         unsigned plc = UpdateLightsInfo(camnode, dt);
@@ -206,7 +211,7 @@ void IrrDriver::renderGLSL(float dt)
                     const float *tmp = vertex.data();
                     for (unsigned int i = 0; i < vertex.size(); i += 1024 * 6)
                     {
-                        unsigned count = MIN2(vertex.size() - i, 1024 * 6);
+                        unsigned count = MIN2((int)vertex.size() - i, 1024 * 6);
                         glBufferSubData(GL_ARRAY_BUFFER, 0, count * sizeof(float), &tmp[i]);
 
                         glDrawArrays(GL_LINES, 0, count / 3);
@@ -242,7 +247,14 @@ void IrrDriver::renderGLSL(float dt)
                 renderShadowsDebug();
             }
             else
-                fbo->BlitToDefault(viewport.UpperLeftCorner.X, viewport.UpperLeftCorner.Y, viewport.LowerRightCorner.X, viewport.LowerRightCorner.Y);
+            {
+                glEnable(GL_FRAMEBUFFER_SRGB);
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                if (UserConfigParams::m_dynamic_lights)
+                    camera->activate();
+                m_post_processing->renderPassThrough(fbo->getRTT()[0]);
+                glDisable(GL_FRAMEBUFFER_SRGB);
+            }
         }
 
         PROFILER_POP_CPU_MARKER();
@@ -327,7 +339,18 @@ void IrrDriver::renderScene(scene::ICameraSceneNode * const camnode, unsigned po
     }
 
     PROFILER_PUSH_CPU_MARKER("- Solid Pass 1", 0xFF, 0x00, 0x00);
-    renderSolidFirstPass();
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LEQUAL);
+    glEnable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+    glEnable(GL_CULL_FACE);
+    if (UserConfigParams::m_dynamic_lights || forceRTT)
+    {
+        m_rtts->getFBO(FBO_NORMAL_AND_DEPTHS).Bind();
+        glClearColor(0., 0., 0., 0.);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+        renderSolidFirstPass();
+    }
     PROFILER_POP_CPU_MARKER();
 
 
@@ -335,7 +358,8 @@ void IrrDriver::renderScene(scene::ICameraSceneNode * const camnode, unsigned po
     // Lights
     {
         PROFILER_PUSH_CPU_MARKER("- Light", 0x00, 0xFF, 0x00);
-        renderLights(pointlightcount, hasShadow);
+        if (UserConfigParams::m_dynamic_lights)
+            renderLights(pointlightcount, hasShadow);
         PROFILER_POP_CPU_MARKER();
     }
 
@@ -349,17 +373,20 @@ void IrrDriver::renderScene(scene::ICameraSceneNode * const camnode, unsigned po
     }
 
     PROFILER_PUSH_CPU_MARKER("- Solid Pass 2", 0x00, 0x00, 0xFF);
-    if (!UserConfigParams::m_dynamic_lights && ! forceRTT)
+    if (UserConfigParams::m_dynamic_lights || forceRTT)
     {
-        glEnable(GL_FRAMEBUFFER_SRGB);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    }
-    else
         m_rtts->getFBO(FBO_COLORS).Bind();
+        SColor clearColor(0, 150, 150, 150);
+        if (World::getWorld() != NULL)
+            clearColor = World::getWorld()->getClearColor();
+
+        glClearColor(clearColor.getRed() / 255.f, clearColor.getGreen() / 255.f,
+            clearColor.getBlue() / 255.f, clearColor.getAlpha() / 255.f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glDepthMask(GL_FALSE);
+    }
     renderSolidSecondPass();
     PROFILER_POP_CPU_MARKER();
-
-    m_sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 
     if (getNormals())
     {
@@ -412,6 +439,8 @@ void IrrDriver::renderScene(scene::ICameraSceneNode * const camnode, unsigned po
         renderTransparent();
         PROFILER_POP_CPU_MARKER();
     }
+
+    m_sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 
     // Render particles
     {
@@ -509,12 +538,10 @@ void IrrDriver::renderFixed(float dt)
 void IrrDriver::computeSunVisibility()
 {
     // Is the lens flare enabled & visible? Check last frame's query.
-    bool hasflare = false;
     bool hasgodrays = false;
 
     if (World::getWorld() != NULL)
     {
-        hasflare = World::getWorld()->getTrack()->hasLensFlare();
         hasgodrays = World::getWorld()->getTrack()->hasGodRays();
     }
 
@@ -800,15 +827,13 @@ void IrrDriver::renderGlow(std::vector<GlowData>& glows)
     glClearColor(0, 0, 0, 0);
     glClear(GL_STENCIL_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
-    const u32 glowcount = glows.size();
-    ColorizeProvider * const cb = (ColorizeProvider *) m_shaders->m_callbacks[ES_COLORIZE];
+    const u32 glowcount = (int)glows.size();
 
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
     glStencilFunc(GL_ALWAYS, 1, ~0);
     glEnable(GL_STENCIL_TEST);
 
     glEnable(GL_DEPTH_TEST);
-    glDisable(GL_ALPHA_TEST);
     glDepthMask(GL_FALSE);
     glDisable(GL_BLEND);
 
@@ -837,7 +862,7 @@ void IrrDriver::renderGlow(std::vector<GlowData>& glows)
             {
                 glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_SHORT,
                     (const void*)(GlowPassCmd::getInstance()->Offset * sizeof(DrawElementsIndirectCommand)),
-                    GlowPassCmd::getInstance()->Size,
+                    (int)GlowPassCmd::getInstance()->Size,
                     sizeof(DrawElementsIndirectCommand));
             }
         }

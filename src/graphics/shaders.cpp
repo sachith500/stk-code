@@ -110,14 +110,10 @@ Shaders::Shaders()
     // Callbacks
     memset(m_callbacks, 0, sizeof(m_callbacks));
 
-    m_callbacks[ES_SKYBOX] = new SkyboxProvider();
     m_callbacks[ES_WATER] = new WaterShaderProvider();
     m_callbacks[ES_GRASS] = new GrassShaderProvider();
-    m_callbacks[ES_BUBBLES] = new BubbleEffectProvider();
     m_callbacks[ES_MOTIONBLUR] = new MotionBlurProvider();
-    m_callbacks[ES_GAUSSIAN3V] = m_callbacks[ES_GAUSSIAN3H] = new GaussianBlurProvider();
     m_callbacks[ES_MIPVIZ] = new MipVizProvider();
-    m_callbacks[ES_COLORIZE] = new ColorizeProvider();
     m_callbacks[ES_SUNLIGHT] = new SunLightProvider();
     m_callbacks[ES_DISPLACE] = new DisplaceProvider();
 
@@ -125,6 +121,145 @@ Shaders::Shaders()
         m_shaders[i] = -1;
 
     loadShaders();
+}
+
+// Shader loading  related hook
+
+static std::string LoadHeader()
+{
+    std::string result;
+    std::ifstream Stream(file_manager->getAsset("shaders/header.txt").c_str(), std::ios::in);
+
+    if (Stream.is_open())
+    {
+        std::string Line = "";
+        while (getline(Stream, Line))
+            result += "\n" + Line;
+        Stream.close();
+    }
+
+    return result;
+}
+
+// Mostly from shader tutorial
+GLuint LoadShader(const char * file, unsigned type)
+{
+    GLuint Id = glCreateShader(type);
+    char versionString[20];
+    sprintf(versionString, "#version %d\n", irr_driver->getGLSLVersion());
+    std::string Code = versionString;
+    if (irr_driver->hasVSLayerExtension())
+        Code += "#extension GL_AMD_vertex_shader_layer : enable\n";
+    if (UserConfigParams::m_azdo)
+        Code += "#extension GL_ARB_bindless_texture : enable\n";
+    else
+    {
+        Code += "#extension GL_ARB_bindless_texture : disable\n";
+        Code += "#undef GL_ARB_bindless_texture\n";
+    }
+    std::ifstream Stream(file, std::ios::in);
+    Code += "//" + std::string(file) + "\n";
+    if (irr_driver->needUBOWorkaround())
+        Code += "#define UBO_DISABLED\n";
+    if (irr_driver->hasVSLayerExtension())
+        Code += "#define VSLayer\n";
+    if (irr_driver->needsRGBBindlessWorkaround())
+        Code += "#define SRGBBindlessFix\n";
+    Code += LoadHeader();
+    if (Stream.is_open())
+    {
+        std::string Line = "";
+        while (getline(Stream, Line))
+            Code += "\n" + Line;
+        Stream.close();
+    }
+    GLint Result = GL_FALSE;
+    int InfoLogLength;
+    Log::info("GLWrap", "Compiling shader : %s", file);
+    char const * SourcePointer = Code.c_str();
+    int length = (int)strlen(SourcePointer);
+    glShaderSource(Id, 1, &SourcePointer, &length);
+    glCompileShader(Id);
+
+    glGetShaderiv(Id, GL_COMPILE_STATUS, &Result);
+    if (Result == GL_FALSE)
+    {
+        Log::error("GLWrap", "Error in shader %s", file);
+        glGetShaderiv(Id, GL_INFO_LOG_LENGTH, &InfoLogLength);
+        if (InfoLogLength<0)
+            InfoLogLength = 1024;
+        char *ErrorMessage = new char[InfoLogLength];
+        ErrorMessage[0] = 0;
+        glGetShaderInfoLog(Id, InfoLogLength, NULL, ErrorMessage);
+        Log::error("GLWrap", ErrorMessage);
+        delete[] ErrorMessage;
+    }
+
+    glGetError();
+
+    return Id;
+}
+
+void setAttribute(AttributeType Tp, GLuint ProgramID)
+{
+    switch (Tp)
+    {
+    case OBJECT:
+        glBindAttribLocation(ProgramID, 0, "Position");
+        glBindAttribLocation(ProgramID, 1, "Normal");
+        glBindAttribLocation(ProgramID, 2, "Color");
+        glBindAttribLocation(ProgramID, 3, "Texcoord");
+        glBindAttribLocation(ProgramID, 4, "SecondTexcoord");
+        glBindAttribLocation(ProgramID, 5, "Tangent");
+        glBindAttribLocation(ProgramID, 6, "Bitangent");
+        glBindAttribLocation(ProgramID, 7, "Origin");
+        glBindAttribLocation(ProgramID, 8, "Orientation");
+        glBindAttribLocation(ProgramID, 9, "Scale");
+        break;
+    case PARTICLES_SIM:
+        glBindAttribLocation(ProgramID, 0, "particle_position");
+        glBindAttribLocation(ProgramID, 1, "lifetime");
+        glBindAttribLocation(ProgramID, 2, "particle_velocity");
+        glBindAttribLocation(ProgramID, 3, "size");
+        glBindAttribLocation(ProgramID, 4, "particle_position_initial");
+        glBindAttribLocation(ProgramID, 5, "lifetime_initial");
+        glBindAttribLocation(ProgramID, 6, "particle_velocity_initial");
+        glBindAttribLocation(ProgramID, 7, "size_initial");
+        break;
+    case PARTICLES_RENDERING:
+        glBindAttribLocation(ProgramID, 1, "lifetime");
+        glBindAttribLocation(ProgramID, 2, "size");
+        glBindAttribLocation(ProgramID, 4, "quadcorner");
+        glBindAttribLocation(ProgramID, 5, "rotationvec");
+        glBindAttribLocation(ProgramID, 6, "anglespeed");
+        break;
+    }
+}
+
+GLuint LoadTFBProgram(const char * vertex_file_path, const char **varyings, unsigned varyingscount)
+{
+    GLuint Program = glCreateProgram();
+    loadAndAttach(Program, GL_VERTEX_SHADER, vertex_file_path);
+    if (irr_driver->getGLSLVersion() < 330)
+        setAttribute(PARTICLES_SIM, Program);
+    glTransformFeedbackVaryings(Program, varyingscount, varyings, GL_INTERLEAVED_ATTRIBS);
+    glLinkProgram(Program);
+
+    GLint Result = GL_FALSE;
+    int InfoLogLength;
+    glGetProgramiv(Program, GL_LINK_STATUS, &Result);
+    if (Result == GL_FALSE)
+    {
+        glGetProgramiv(Program, GL_INFO_LOG_LENGTH, &InfoLogLength);
+        char *ErrorMessage = new char[InfoLogLength];
+        glGetProgramInfoLog(Program, InfoLogLength, NULL, ErrorMessage);
+        Log::error("GLWrap", ErrorMessage);
+        delete[] ErrorMessage;
+    }
+
+    glGetError();
+
+    return Program;
 }
 
 GLuint quad_vbo, tri_vbo;
@@ -346,9 +481,6 @@ void Shaders::loadShaders()
     m_shaders[ES_GRASS_REF] = glslmat(dir + "pass.vert", dir + "pass.frag",
                                       m_callbacks[ES_GRASS], EMT_TRANSPARENT_ALPHA_CHANNEL_REF);
 
-    m_shaders[ES_BUBBLES] = glslmat(dir + "pass.vert", dir + "pass.frag",
-                                    m_callbacks[ES_BUBBLES], EMT_TRANSPARENT_ALPHA_CHANNEL);
-
     m_shaders[ES_MOTIONBLUR] = glsl(dir + "pass.vert", dir + "pass.frag",
                                     m_callbacks[ES_MOTIONBLUR]);
 
@@ -407,7 +539,6 @@ void Shaders::loadShaders()
     initFrustrumVBO();
     initShadowVPMUBO();
     initParticleQuadVBO();
-    MeshShader::BubbleShader::init();
     MeshShader::ViewFrustrumShader::init();
     UtilShader::ColoredLine::init();
 }
@@ -785,7 +916,7 @@ namespace MeshShader
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/utils/encode_normal.frag").c_str(),
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/objectref_pass1.frag").c_str());
         AssignUniforms("ModelMatrix", "InverseModelMatrix", "TextureMatrix");
-        AssignSamplerNames(Program, 0, "tex");
+        AssignSamplerNames(Program, 0, "tex", 1, "glosstex");
     }
 
     GrassPass1Shader::GrassPass1Shader()
@@ -795,7 +926,7 @@ namespace MeshShader
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/utils/encode_normal.frag").c_str(),
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/objectref_pass1.frag").c_str());
         AssignUniforms("ModelMatrix", "InverseModelMatrix", "windDir");
-        AssignSamplerNames(Program, 0, "tex");
+        AssignSamplerNames(Program, 0, "tex", 1, "glosstex");
     }
 
     NormalMapShader::NormalMapShader()
@@ -817,7 +948,7 @@ namespace MeshShader
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/instanced_object_pass1.frag").c_str());
 
         AssignUniforms();
-        AssignSamplerNames(Program, 0, "tex");
+        AssignSamplerNames(Program, 0, "glosstex");
     }
 
     InstancedObjectRefPass1Shader::InstancedObjectRefPass1Shader()
@@ -829,7 +960,7 @@ namespace MeshShader
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/instanced_objectref_pass1.frag").c_str());
 
         AssignUniforms();
-        AssignSamplerNames(Program, 0, "tex");
+        AssignSamplerNames(Program, 0, "tex", 1, "glosstex");
     }
 
     InstancedGrassPass1Shader::InstancedGrassPass1Shader()
@@ -840,7 +971,7 @@ namespace MeshShader
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/utils/encode_normal.frag").c_str(),
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/instanced_objectref_pass1.frag").c_str());
         AssignUniforms("windDir");
-        AssignSamplerNames(Program, 0, "tex");
+        AssignSamplerNames(Program, 0, "tex", 1, "glosstex");
     }
 
     InstancedNormalMapShader::InstancedNormalMapShader()
@@ -851,7 +982,7 @@ namespace MeshShader
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/utils/encode_normal.frag").c_str(),
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/instanced_normalmap.frag").c_str());
         AssignUniforms();
-        AssignSamplerNames(Program, 0, "normalMap", 1, "DiffuseForAlpha");
+        AssignSamplerNames(Program, 0, "normalMap", 1, "glossMap");
     }
 
     // Solid Lit pass shaders
@@ -862,7 +993,7 @@ namespace MeshShader
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/utils/getLightFactor.frag").c_str(),
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/object_pass2.frag").c_str());
         AssignUniforms("ModelMatrix", "TextureMatrix");
-        AssignSamplerNames(Program, 0, "DiffuseMap", 1, "SpecularMap", 2, "SSAO", 3, "Albedo");
+        AssignSamplerNames(Program, 0, "DiffuseMap", 1, "SpecularMap", 2, "SSAO", 3, "Albedo", 4, "SpecMap");
     }
 
     InstancedObjectPass2Shader::InstancedObjectPass2Shader()
@@ -873,7 +1004,7 @@ namespace MeshShader
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/utils/getLightFactor.frag").c_str(),
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/instanced_object_pass2.frag").c_str());
         AssignUniforms();
-        AssignSamplerNames(Program, 0, "DiffuseMap", 1, "SpecularMap", 2, "SSAO", 3, "Albedo");
+        AssignSamplerNames(Program, 0, "DiffuseMap", 1, "SpecularMap", 2, "SSAO", 3, "Albedo", 4, "SpecMap");
     }
 
     InstancedObjectRefPass2Shader::InstancedObjectRefPass2Shader()
@@ -884,7 +1015,7 @@ namespace MeshShader
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/utils/getLightFactor.frag").c_str(),
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/instanced_objectref_pass2.frag").c_str());
         AssignUniforms();
-        AssignSamplerNames(Program, 0, "DiffuseMap", 1, "SpecularMap", 2, "SSAO", 3, "Albedo");
+        AssignSamplerNames(Program, 0, "DiffuseMap", 1, "SpecularMap", 2, "SSAO", 3, "Albedo", 4, "SpecMap");
     }
 
     DetailledObjectPass2Shader::DetailledObjectPass2Shader()
@@ -894,7 +1025,7 @@ namespace MeshShader
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/utils/getLightFactor.frag").c_str(),
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/detailledobject_pass2.frag").c_str());
         AssignUniforms("ModelMatrix");
-        AssignSamplerNames(Program, 0, "DiffuseMap", 1, "SpecularMap", 2, "SSAO", 3, "Albedo", 4, "Detail");
+        AssignSamplerNames(Program, 0, "DiffuseMap", 1, "SpecularMap", 2, "SSAO", 3, "Albedo", 4, "Detail", 5, "SpecMap");
     }
 
     InstancedDetailledObjectPass2Shader::InstancedDetailledObjectPass2Shader()
@@ -905,7 +1036,7 @@ namespace MeshShader
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/utils/getLightFactor.frag").c_str(),
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/instanced_detailledobject_pass2.frag").c_str());
         AssignUniforms();
-        AssignSamplerNames(Program, 0, "DiffuseMap", 1, "SpecularMap", 2, "SSAO", 3, "Albedo", 4, "Detail");
+        AssignSamplerNames(Program, 0, "DiffuseMap", 1, "SpecularMap", 2, "SSAO", 3, "Albedo", 4, "Detail", 5, "SpecMap");
     }
 
     ObjectUnlitShader::ObjectUnlitShader()
@@ -934,7 +1065,7 @@ namespace MeshShader
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/utils/getLightFactor.frag").c_str(),
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/objectref_pass2.frag").c_str());
         AssignUniforms("ModelMatrix", "TextureMatrix");
-        AssignSamplerNames(Program, 0, "DiffuseMap", 1, "SpecularMap", 2, "SSAO", 3, "Albedo");
+        AssignSamplerNames(Program, 0, "DiffuseMap", 1, "SpecularMap", 2, "SSAO", 3, "Albedo", 4, "SpecMap");
     }
 
     GrassPass2Shader::GrassPass2Shader()
@@ -944,7 +1075,7 @@ namespace MeshShader
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/utils/getLightFactor.frag").c_str(),
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/grass_pass2.frag").c_str());
         AssignUniforms("ModelMatrix", "windDir");
-        AssignSamplerNames(Program, 0, "DiffuseMap", 1, "SpecularMap", 2, "SSAO", 3, "Albedo");
+        AssignSamplerNames(Program, 0, "DiffuseMap", 1, "SpecularMap", 2, "SSAO", 3, "Albedo", 4, "SpecMap");
     }
 
     InstancedGrassPass2Shader::InstancedGrassPass2Shader()
@@ -955,7 +1086,7 @@ namespace MeshShader
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/utils/getLightFactor.frag").c_str(),
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/instanced_grass_pass2.frag").c_str());
         AssignUniforms("windDir", "SunDir");
-        AssignSamplerNames(Program, 0, "DiffuseMap", 1, "SpecularMap", 2, "SSAO", 3, "dtex", 4, "Albedo");
+        AssignSamplerNames(Program, 0, "DiffuseMap", 1, "SpecularMap", 2, "SSAO", 3, "dtex", 4, "Albedo", 5, "SpecMap");
     }
 
     SphereMapShader::SphereMapShader()
@@ -998,30 +1129,6 @@ namespace MeshShader
             5, "tex_detail1",
             6, "tex_detail2",
             7, "tex_detail3");
-    }
-
-    GLuint BubbleShader::Program;
-    GLuint BubbleShader::uniform_MVP;
-    GLuint BubbleShader::uniform_tex;
-    GLuint BubbleShader::uniform_time;
-    GLuint BubbleShader::uniform_transparency;
-
-    void BubbleShader::init()
-    {
-        Program = LoadProgram(OBJECT,
-            GL_VERTEX_SHADER, file_manager->getAsset("shaders/bubble.vert").c_str(),
-            GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/bubble.frag").c_str());
-        uniform_MVP = glGetUniformLocation(Program, "ModelViewProjectionMatrix");
-        uniform_tex = glGetUniformLocation(Program, "tex");
-        uniform_time = glGetUniformLocation(Program, "time");
-        uniform_transparency = glGetUniformLocation(Program, "transparency");
-    }
-    void BubbleShader::setUniforms(const core::matrix4 &ModelViewProjectionMatrix, unsigned TU_tex, float time, float transparency)
-    {
-        glUniformMatrix4fv(uniform_MVP, 1, GL_FALSE, ModelViewProjectionMatrix.pointer());
-        glUniform1i(uniform_tex, TU_tex);
-        glUniform1f(uniform_time, time);
-        glUniform1f(uniform_transparency, transparency);
     }
 
     TransparentShader::TransparentShader()
@@ -1199,14 +1306,14 @@ namespace MeshShader
         {
             Program = LoadProgram(OBJECT,
                 GL_VERTEX_SHADER, file_manager->getAsset("shaders/shadow_grass.vert").c_str(),
-                GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/object_unlit.frag").c_str());
+                GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/instanced_shadowref.frag").c_str());
         }
         else
         {
             Program = LoadProgram(OBJECT,
                 GL_VERTEX_SHADER, file_manager->getAsset("shaders/shadow_grass.vert").c_str(),
                 GL_GEOMETRY_SHADER, file_manager->getAsset("shaders/shadow.geom").c_str(),
-                GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/object_unlit.frag").c_str());
+                GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/instanced_shadowref.frag").c_str());
         }
         AssignUniforms("layer", "ModelMatrix", "windDir");
         AssignSamplerNames(Program, 0, "tex");
@@ -1280,10 +1387,11 @@ namespace MeshShader
     NormalVisualizer::NormalVisualizer()
     {
         Program = LoadProgram(OBJECT,
-            GL_VERTEX_SHADER, file_manager->getAsset("shaders/object_pass.vert").c_str(),
+            GL_VERTEX_SHADER, file_manager->getAsset("shaders/utils/getworldmatrix.vert").c_str(),
+            GL_VERTEX_SHADER, file_manager->getAsset("shaders/instanced_object_pass.vert").c_str(),
             GL_GEOMETRY_SHADER, file_manager->getAsset("shaders/normal_visualizer.geom").c_str(),
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/coloredquad.frag").c_str());
-        AssignUniforms("ModelMatrix", "InverseModelMatrix", "color");
+        AssignUniforms("color");
     }
 
     GLuint ViewFrustrumShader::Program;
@@ -1353,10 +1461,10 @@ namespace LightShader
         glEnableVertexAttribArray(attrib_Radius);
         glVertexAttribPointer(attrib_Radius, 1, GL_FLOAT, GL_FALSE, sizeof(PointLightInfo), (GLvoid*)(7 * sizeof(float)));
 
-        glVertexAttribDivisor(attrib_Position, 1);
-        glVertexAttribDivisor(attrib_Energy, 1);
-        glVertexAttribDivisor(attrib_Color, 1);
-        glVertexAttribDivisor(attrib_Radius, 1);
+        glVertexAttribDivisorARB(attrib_Position, 1);
+        glVertexAttribDivisorARB(attrib_Energy, 1);
+        glVertexAttribDivisorARB(attrib_Color, 1);
+        glVertexAttribDivisorARB(attrib_Radius, 1);
     }
 }
 
@@ -1435,6 +1543,7 @@ namespace FullScreenShader
         Program = LoadProgram(OBJECT,
             GL_VERTEX_SHADER, file_manager->getAsset("shaders/screenquad.vert").c_str(),
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/utils/getCIEXYZ.frag").c_str(),
+            GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/utils/getRGBfromCIEXxy.frag").c_str(),
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/bloom.frag").c_str());
         AssignUniforms();
 
@@ -1486,14 +1595,15 @@ namespace FullScreenShader
         AssignUniforms("direction", "col");
     }
 
-    DiffuseEnvMapShader::DiffuseEnvMapShader()
+    EnvMapShader::EnvMapShader()
     {
         Program = LoadProgram(OBJECT,
             GL_VERTEX_SHADER, file_manager->getAsset("shaders/screenquad.vert").c_str(),
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/utils/decodeNormal.frag").c_str(),
+            GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/utils/getPosFromUVDepth.frag").c_str(),
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/diffuseenvmap.frag").c_str());
         AssignUniforms("TransposeViewMatrix", "blueLmn[0]", "greenLmn[0]", "redLmn[0]");
-        AssignSamplerNames(Program, 0, "ntex");
+        AssignSamplerNames(Program, 0, "ntex", 1, "dtex", 2, "tex");
     }
 
     ShadowedSunLightShader::ShadowedSunLightShader()
@@ -1526,7 +1636,7 @@ namespace FullScreenShader
                 GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/rh.frag").c_str());
         }
 
-        AssignUniforms("RSMMatrix", "RHMatrix", "extents");
+        AssignUniforms("RSMMatrix", "RHMatrix", "extents", "suncol");
         AssignSamplerNames(Program, 0, "ctex", 1, "ntex", 2, "dtex");
     }
 
@@ -1537,7 +1647,7 @@ namespace FullScreenShader
             GL_GEOMETRY_SHADER, file_manager->getAsset("shaders/rhpassthrough.geom").c_str(),
             GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/rh.frag").c_str());
 
-        AssignUniforms("RSMMatrix", "RHMatrix", "extents", "slice");
+        AssignUniforms("RSMMatrix", "RHMatrix", "extents", "slice", "suncol");
 
         AssignSamplerNames(Program, 0, "ctex", 1, "ntex", 2, "dtex");
     }
@@ -1579,11 +1689,10 @@ namespace FullScreenShader
     {
         Program = LoadProgram(OBJECT,
             GL_COMPUTE_SHADER, file_manager->getAsset("shaders/bilateralH.comp").c_str());
-        TU_source = 0;
-        TU_depth = 1;
         TU_dest = 2;
-        AssignUniforms();
-        AssignTextureUnit(Program, TexUnit(TU_source, "source"), TexUnit(TU_depth, "depth"), TexUnit(TU_dest, "dest"));
+        AssignUniforms("pixel");
+        AssignSamplerNames(Program, 0, "source", 1, "depth");
+        AssignTextureUnit(Program, TexUnit(TU_dest, "dest"));
     }
 
     Gaussian6HBlurShader::Gaussian6HBlurShader()
@@ -1620,10 +1729,10 @@ namespace FullScreenShader
     {
         Program = LoadProgram(OBJECT,
             GL_COMPUTE_SHADER, file_manager->getAsset("shaders/bilateralV.comp").c_str());
-        TU_source = 0;
-        TU_depth = 1;
         TU_dest = 2;
-        AssignTextureUnit(Program, TexUnit(TU_source, "source"), TexUnit(TU_depth, "depth"), TexUnit(TU_dest, "dest"));
+        AssignUniforms("pixel");
+        AssignSamplerNames(Program, 0, "source", 1, "depth");
+        AssignTextureUnit(Program, TexUnit(TU_dest, "dest"));
     }
 
     Gaussian6VBlurShader::Gaussian6VBlurShader()
@@ -1780,6 +1889,16 @@ namespace FullScreenShader
 
 namespace UIShader
 {
+
+    Primitive2DList::Primitive2DList()
+    {
+        Program = LoadProgram(OBJECT,
+            GL_VERTEX_SHADER, file_manager->getAsset("shaders/primitive2dlist.vert").c_str(),
+            GL_FRAGMENT_SHADER, file_manager->getAsset("shaders/transparent.frag").c_str());
+        AssignUniforms();
+        AssignSamplerNames(Program, 0, "tex");
+    }
+
     TextureRectShader::TextureRectShader()
     {
         Program = LoadProgram(OBJECT,

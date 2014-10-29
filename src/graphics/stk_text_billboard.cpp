@@ -6,7 +6,7 @@
 #include "graphics/stkmeshscenenode.hpp"
 #include "guiengine/engine.hpp"
 #include "guiengine/scalable_font.hpp"
-
+#include "glwrap.hpp"
 #include <SMesh.h>
 #include <SMeshBuffer.h>
 #include <ISceneManager.h>
@@ -20,7 +20,7 @@ STKTextBillboard::STKTextBillboard(core::stringw text, gui::ScalableFont* font,
     irr::scene::ISceneManager* mgr, irr::s32 id,
     const irr::core::vector3df& position, const irr::core::vector3df& size) :
     STKMeshSceneNode(new scene::SMesh(),
-        parent, irr_driver->getSceneManager(), -1,
+        parent, irr_driver->getSceneManager(), -1, "text_billboard",
         position, core::vector3df(0.0f, 0.0f, 0.0f), size, false)
 {
     m_color_top = color_top;
@@ -92,6 +92,7 @@ scene::IMesh* STKTextBillboard::getTextMesh(core::stringw text, gui::ScalableFon
         {
             buffer = new scene::SMeshBuffer();
             buffer->getMaterial().setTexture(0, m_chars[i].m_texture);
+            buffer->getMaterial().setTexture(1, getUnicolorTexture(video::SColor(0, 0, 0, 0)));
             buffer->getMaterial().MaterialType = irr_driver->getShader(ES_OBJECT_UNLIT);
             buffers[m_chars[i].m_texture] = buffer;
         }
@@ -152,21 +153,16 @@ scene::IMesh* STKTextBillboard::getTextMesh(core::stringw text, gui::ScalableFon
     return Mesh;
 }
 
-void STKTextBillboard::OnRegisterSceneNode()
+void STKTextBillboard::updateNoGL()
 {
-    if (IsVisible)
-    {
-        SceneManager->registerNodeForRendering(this, scene::ESNRP_SOLID);
+    scene::ICameraSceneNode* curr_cam = irr_driver->getSceneManager()->getActiveCamera();
+    core::vector3df cam_pos = curr_cam->getPosition();
+    core::vector3df text_pos = this->getAbsolutePosition();
+    float angle = atan2(text_pos.X - cam_pos.X, text_pos.Z - cam_pos.Z);
+    this->setRotation(core::vector3df(0.0f, angle * 180.0f / M_PI, 0.0f));
+    updateAbsolutePosition();
 
-        scene::ICameraSceneNode* curr_cam = irr_driver->getSceneManager()->getActiveCamera();
-        core::vector3df cam_pos = curr_cam->getPosition();
-        core::vector3df text_pos = this->getAbsolutePosition();
-        float angle = atan2(text_pos.X - cam_pos.X, text_pos.Z - cam_pos.Z);
-        this->setRotation(core::vector3df(0.0f, angle * 180.0f / M_PI, 0.0f));
-        updateAbsolutePosition();
-    }
-
-    ISceneNode::OnRegisterSceneNode();
+    STKMeshSceneNode::updateNoGL();
 }
 
 void STKTextBillboard::collectChar(video::ITexture* texture,

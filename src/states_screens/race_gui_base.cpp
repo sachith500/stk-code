@@ -23,7 +23,7 @@
 #include "audio/music_manager.hpp"
 #include "config/user_config.hpp"
 #include "graphics/camera.hpp"
-#include "graphics/glwrap.hpp"
+#include "graphics/2dutils.hpp"
 #include "graphics/irr_driver.hpp"
 #include "graphics/material.hpp"
 #include "graphics/material_manager.hpp"
@@ -45,6 +45,14 @@
 #include "utils/constants.hpp"
 
 #include <ICameraSceneNode.h>
+
+namespace irr
+{
+    namespace video
+    {
+        extern bool useCoreContext;
+    }
+}
 
 RaceGUIBase::RaceGUIBase()
 {
@@ -418,7 +426,8 @@ void RaceGUIBase::renderPlayerView(const Camera *camera, float dt)
         glviewport[3] = viewport.LowerRightCorner.Y;
         //glGetIntegerv(GL_VIEWPORT, glviewport);
 
-        glDisable(GL_TEXTURE_2D);
+        if (!irr::video::useCoreContext)
+            glDisable(GL_TEXTURE_2D);
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
         glEnable(GL_BLEND);
@@ -433,7 +442,8 @@ void RaceGUIBase::renderPlayerView(const Camera *camera, float dt)
         glVertex3d(glviewport[2],glviewport[3],0);
         glVertex3d(glviewport[2],glviewport[1],0);
         glEnd();
-        glEnable(GL_TEXTURE_2D);
+        if (!irr::video::useCoreContext)
+            glEnable(GL_TEXTURE_2D);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 #endif
     }
@@ -821,7 +831,6 @@ void RaceGUIBase::drawGlobalPlayerIcons(int bottom_margin)
 
         if (info.special_title.size() > 0)
         {
-            static video::SColor color = video::SColor(255, 255, 0, 0);
             core::rect<s32> pos(x+ICON_PLAYER_WIDTH, y+5,
                                 x+ICON_PLAYER_WIDTH, y+5);
             core::stringw s(info.special_title.c_str());

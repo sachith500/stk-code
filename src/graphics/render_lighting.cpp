@@ -1,35 +1,15 @@
 #include "graphics/irr_driver.hpp"
 
 #include "config/user_config.hpp"
-#include "graphics/callbacks.hpp"
-#include "graphics/camera.hpp"
 #include "graphics/glwrap.hpp"
-#include "graphics/lens_flare.hpp"
 #include "graphics/light.hpp"
-#include "graphics/lod_node.hpp"
-#include "graphics/material_manager.hpp"
-#include "graphics/particle_kind_manager.hpp"
-#include "graphics/per_camera_node.hpp"
 #include "graphics/post_processing.hpp"
-#include "graphics/referee.hpp"
 #include "graphics/rtts.hpp"
-#include "graphics/screenquad.hpp"
 #include "graphics/shaders.hpp"
-#include "graphics/stkmeshscenenode.hpp"
-#include "graphics/wind.hpp"
-#include "io/file_manager.hpp"
-#include "items/item.hpp"
-#include "items/item_manager.hpp"
 #include "modes/world.hpp"
-#include "physics/physics.hpp"
 #include "tracks/track.hpp"
-#include "utils/constants.hpp"
-#include "utils/helpers.hpp"
-#include "utils/log.hpp"
 #include "utils/profiler.hpp"
-
-#include <algorithm>
-#include <limits>
+#include "callbacks.hpp"
 
 #define MAX2(a, b) ((a) > (b) ? (a) : (b))
 #define MIN2(a, b) ((a) > (b) ? (b) : (a))
@@ -49,7 +29,7 @@ static void renderPointLights(unsigned count)
     glBindBuffer(GL_ARRAY_BUFFER, LightShader::PointLightShader::getInstance()->vbo);
     glBufferSubData(GL_ARRAY_BUFFER, 0, count * sizeof(LightShader::PointLightInfo), PointLightsInfo);
 
-    LightShader::PointLightShader::getInstance()->SetTextureUnits(createVector<GLuint>(irr_driver->getRenderTargetTexture(RTT_NORMAL_AND_DEPTH), irr_driver->getDepthStencilTexture()));
+    LightShader::PointLightShader::getInstance()->SetTextureUnits(irr_driver->getRenderTargetTexture(RTT_NORMAL_AND_DEPTH), irr_driver->getDepthStencilTexture());
     LightShader::PointLightShader::getInstance()->setUniforms();
 
     glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, count);
@@ -57,7 +37,7 @@ static void renderPointLights(unsigned count)
 
 unsigned IrrDriver::UpdateLightsInfo(scene::ICameraSceneNode * const camnode, float dt)
 {
-    const u32 lightcount = m_lights.size();
+    const u32 lightcount = (u32)m_lights.size();
     const core::vector3df &campos = camnode->getAbsolutePosition();
 
     std::vector<LightNode *> BucketedLN[15];
@@ -135,14 +115,15 @@ void IrrDriver::renderLights(unsigned pointlightcount, bool hasShadow)
         glDisable(GL_BLEND);
         m_rtts->getRH().Bind();
         glBindVertexArray(SharedObject::FullScreenQuadVAO);
+        SunLightProvider * const cb = (SunLightProvider *)irr_driver->getCallback(ES_SUNLIGHT);
         if (irr_driver->needRHWorkaround())
         {
             glUseProgram(FullScreenShader::NVWorkaroundRadianceHintsConstructionShader::getInstance()->Program);
             FullScreenShader::NVWorkaroundRadianceHintsConstructionShader::getInstance()->SetTextureUnits(
-                createVector<GLuint>(m_rtts->getRSM().getRTT()[0], m_rtts->getRSM().getRTT()[1], m_rtts->getRSM().getDepthTexture()));
+                m_rtts->getRSM().getRTT()[0], m_rtts->getRSM().getRTT()[1], m_rtts->getRSM().getDepthTexture());
             for (unsigned i = 0; i < 32; i++)
             {
-                FullScreenShader::NVWorkaroundRadianceHintsConstructionShader::getInstance()->setUniforms(rsm_matrix, rh_matrix, rh_extend, i);
+                FullScreenShader::NVWorkaroundRadianceHintsConstructionShader::getInstance()->setUniforms(rsm_matrix, rh_matrix, rh_extend, i, video::SColorf(cb->getRed(), cb->getGreen(), cb->getBlue()));
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
             }
         }
@@ -150,13 +131,11 @@ void IrrDriver::renderLights(unsigned pointlightcount, bool hasShadow)
         {
             glUseProgram(FullScreenShader::RadianceHintsConstructionShader::getInstance()->Program);
             FullScreenShader::RadianceHintsConstructionShader::getInstance()->SetTextureUnits(
-                createVector<GLuint>(
                     m_rtts->getRSM().getRTT()[0],
                     m_rtts->getRSM().getRTT()[1],
                     m_rtts->getRSM().getDepthTexture()
-                )
             );
-            FullScreenShader::RadianceHintsConstructionShader::getInstance()->setUniforms(rsm_matrix, rh_matrix, rh_extend);
+            FullScreenShader::RadianceHintsConstructionShader::getInstance()->setUniforms(rsm_matrix, rh_matrix, rh_extend, video::SColorf(cb->getRed(), cb->getGreen(), cb->getBlue()));
             glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, 32);
         }
     }
@@ -164,11 +143,7 @@ void IrrDriver::renderLights(unsigned pointlightcount, bool hasShadow)
     for (unsigned i = 0; i < sun_ortho_matrix.size(); i++)
         sun_ortho_matrix[i] *= getInvViewMatrix();
     m_rtts->getFBO(FBO_COMBINED_DIFFUSE_SPECULAR).Bind();
-    if (!UserConfigParams::m_dynamic_lights)
-        glClearColor(.5, .5, .5, .5);
     glClear(GL_COLOR_BUFFER_BIT);
-    if (!UserConfigParams::m_dynamic_lights)
-        return;
 
     m_rtts->getFBO(FBO_DIFFUSE).Bind();
     if (UserConfigParams::m_gi && UserConfigParams::m_shadows && hasShadow)
@@ -177,12 +152,12 @@ void IrrDriver::renderLights(unsigned pointlightcount, bool hasShadow)
         m_post_processing->renderGI(rh_matrix, rh_extend, m_rtts->getRH().getRTT()[0], m_rtts->getRH().getRTT()[1], m_rtts->getRH().getRTT()[2]);
     }
 
+    m_rtts->getFBO(FBO_COMBINED_DIFFUSE_SPECULAR).Bind();
+
     {
         ScopedGPUTimer timer(irr_driver->getGPUTimer(Q_ENVMAP));
-        m_post_processing->renderDiffuseEnvMap(blueSHCoeff, greenSHCoeff, redSHCoeff);
+        m_post_processing->renderEnvMap(blueSHCoeff, greenSHCoeff, redSHCoeff, SkyboxCubeMap);
     }
-
-    m_rtts->getFBO(FBO_COMBINED_DIFFUSE_SPECULAR).Bind();
 
     // Render sunlight if and only if track supports shadow
     if (!World::getWorld() || World::getWorld()->getTrack()->hasShadows())

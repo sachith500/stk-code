@@ -2,6 +2,7 @@
 
 #include "config/player_manager.hpp"
 #include "input/device_manager.hpp"
+#include "input/input_device.hpp"
 #include "input/input_manager.hpp"
 #include "challenges/unlock_manager.hpp"
 #include "modes/world.hpp"
@@ -12,7 +13,6 @@
 #include "network/protocols/synchronization_protocol.hpp"
 #include "online/online_profile.hpp"
 #include "race/race_manager.hpp"
-#include "states_screens/state_manager.hpp"
 #include "states_screens/kart_selection.hpp"
 #include "states_screens/network_kart_selection.hpp"
 #include "utils/log.hpp"
@@ -117,14 +117,14 @@ void StartGameProtocol::update()
                 rki.setHostId(profile->race_id);
                 PlayerProfile* profile_to_use = PlayerManager::getCurrentPlayer();
                 assert(profile_to_use);
-                InputDevice* device = input_manager->getDeviceList()->getLatestUsedDevice();
+                InputDevice* device = input_manager->getDeviceManager()->getLatestUsedDevice();
                 int new_player_id = 0;
                 if (StateManager::get()->getActivePlayers().size() >= 1) // more than one player, we're the first
                     new_player_id = 0;
                 else
                     new_player_id = StateManager::get()->createActivePlayer( profile_to_use, device);
                 device->setPlayer(StateManager::get()->getActivePlayer(new_player_id));
-                input_manager->getDeviceList()->setSinglePlayer(StateManager::get()->getActivePlayer(new_player_id));
+                input_manager->getDeviceManager()->setSinglePlayer(StateManager::get()->getActivePlayer(new_player_id));
 
                 race_manager->setPlayerKart(i, rki);
                 race_manager->setLocalKartInfo(new_player_id, profile->kart_name);
@@ -159,7 +159,7 @@ void StartGameProtocol::update()
         KartSelectionScreen* s = KartSelectionScreen::getInstance();
         s->setMultiplayer(false);
         s->setFromOverworld(false);
-        StateManager::get()->pushScreen( s );*/
+        s->push();*/
     }
     else if (m_state == SYNCHRONIZATION_WAIT)
     {

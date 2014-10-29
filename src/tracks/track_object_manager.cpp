@@ -108,18 +108,18 @@ void TrackObjectManager::reset()
 void TrackObjectManager::disable(std::string name)
 {
      TrackObject* curr;
-     for_in (curr,m_all_objects){
-		 
-            if (curr->getName() == (name) || curr->getID() == (name))
-            {
+     for_in (curr,m_all_objects)
+     {
+        if (curr->getName() == (name) || curr->getID() == (name))
+        {
 
-				curr->setEnable(false);
-                if (curr->getType() == "mesh")
-                {
-                    if (curr->getPhysicalObject()!=NULL)
-                        curr->getPhysicalObject()->removeBody();
-                }
+			curr->setEnable(false);
+            if (curr->getType() == "mesh")
+            {
+                if (curr->getPhysicalObject()!=NULL)
+                    curr->getPhysicalObject()->removeBody();
             }
+        }
      }
 }
 // ----------------------------------------------------------------------------
@@ -128,23 +128,22 @@ void TrackObjectManager::disable(std::string name)
  */
 void TrackObjectManager::enable(std::string name)
 {
-     TrackObject* curr;
-     for_in (curr,m_all_objects){
-		
-            if (curr->getName() == (name) || curr->getID() == (name))
+    TrackObject* curr;
+    for_in (curr,m_all_objects)
+    {
+        if (curr->getName() == (name) || curr->getID() == (name))
+        {
+            curr->reset();
+            curr->setEnable(true);
+            if (curr->getType() == "mesh")
             {
-			
-				curr->reset();
-				curr->setEnable(true);
-                if (curr->getType() == "mesh")
-                {
-                    if (curr->getPhysicalObject() != NULL)
-                    curr->getPhysicalObject()->addBody();
-                }
-            
+                if (curr->getPhysicalObject() != NULL)
+                curr->getPhysicalObject()->addBody();
             }
-     }
+        }
+    }
 }
+
 // ----------------------------------------------------------------------------
 /**  returns activation status for all track objects
  *   with a particular ID

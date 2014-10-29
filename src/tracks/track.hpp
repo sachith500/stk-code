@@ -384,8 +384,6 @@ private:
     bool m_bloom;
     float m_bloom_threshold;
 
-    bool m_lensflare;
-
     bool m_godrays;
     core::vector3df m_godrays_position;
     float m_godrays_opacity;
@@ -421,9 +419,6 @@ private:
                              std::vector<MusicInformation*>& m_music   );
     void loadCurves(const XMLNode &node);
     void handleSky(const XMLNode &root, const std::string &filename);
-    void loadObjects(const XMLNode* root, const std::string& path, ModelDefinitionLoader& lod_loader,
-                     bool create_lod_definitions, scene::ISceneNode* parent,
-                     std::map<std::string, XMLNode*>& library_nodes);
 
 public:
 
@@ -480,6 +475,9 @@ public:
     // ------------------------------------------------------------------------
     /** Returns true if this track has easter eggs. */
     bool hasEasterEggs() const { return m_has_easter_eggs; }
+    // ------------------------------------------------------------------------
+    void loadObjects(const XMLNode* root, const std::string& path, ModelDefinitionLoader& lod_loader,
+        bool create_lod_definitions, scene::ISceneNode* parent);
     // ------------------------------------------------------------------------
     bool               isSoccer             () const { return m_is_soccer; }
     // ------------------------------------------------------------------------
@@ -550,7 +548,7 @@ public:
                                 { return m_root+"/"+s; }
     // ------------------------------------------------------------------------
     /** Returns the number of modes available for this track. */
-    unsigned int       getNumberOfModes() const { return m_all_modes.size();  }
+    unsigned int       getNumberOfModes() const { return (unsigned int) m_all_modes.size();  }
     // ------------------------------------------------------------------------
     /** Returns number of completed challenges. */
     unsigned int getNumOfCompletedChallenges();
@@ -575,7 +573,7 @@ public:
     // ------------------------------------------------------------------------
     /** Get the number of start positions defined in the scene file. */
     unsigned int getNumberOfStartPositions() const
-                                          { return m_start_transforms.size(); }
+                            { return (unsigned int)m_start_transforms.size(); }
     // ------------------------------------------------------------------------
     bool getWeatherLightning() {return m_weather_lightning;}
     // ------------------------------------------------------------------------
@@ -630,7 +628,7 @@ public:
     bool hasClouds() const { return m_clouds; }
 
     // ------------------------------------------------------------------------
-    bool getBloom() const { return m_bloom; }
+    bool hasBloom() const { return m_bloom; }
 
     // ------------------------------------------------------------------------
     float getBloomThreshold() const { return m_bloom_threshold; }
@@ -640,9 +638,6 @@ public:
     core::vector3df getColorLevelIn() const { return m_color_inlevel; }
     // ------------------------------------------------------------------------
     core::vector2df getColorLevelOut() const { return m_color_outlevel; }
-
-    // ------------------------------------------------------------------------
-    bool hasLensFlare() const { return m_lensflare; }
     // ------------------------------------------------------------------------
     bool hasGodRays() const { return m_godrays; }
     // ------------------------------------------------------------------------
@@ -666,7 +661,11 @@ public:
     // ------------------------------------------------------------------------
     void setActualNumberOfLaps(unsigned int laps)
                                          { m_actual_number_of_laps = laps; }
+    // ------------------------------------------------------------------------
     bool operator<(const Track &other) const;
+    // ------------------------------------------------------------------------
+    /** Adds mesh to cleanup list */
+    void addCachedMesh(scene::IMesh* mesh) { m_all_cached_meshes.push_back(mesh); }
 };   // class Track
 
 #endif

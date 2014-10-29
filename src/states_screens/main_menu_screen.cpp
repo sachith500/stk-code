@@ -30,6 +30,7 @@
 #include "guiengine/widgets/ribbon_widget.hpp"
 #include "input/device_manager.hpp"
 #include "input/input_manager.hpp"
+#include "input/keyboard_device.hpp"
 #include "io/file_manager.hpp"
 #include "karts/kart_properties_manager.hpp"
 #include "main_loop.hpp"
@@ -42,6 +43,7 @@
 #include "states_screens/grand_prix_editor_screen.hpp"
 #include "states_screens/help_screen_1.hpp"
 #include "states_screens/offline_kart_selection.hpp"
+#include "states_screens/online_profile_achievements.hpp"
 #include "states_screens/online_screen.hpp"
 #include "states_screens/options_screen_video.hpp"
 #include "states_screens/state_manager.hpp"
@@ -96,10 +98,13 @@ void MainMenuScreen::init()
 {
     Screen::init();
 
+    m_user_id = getWidget<ButtonWidget>("user-id");
+    assert(m_user_id);
+
     // reset in case we're coming back from a race
     StateManager::get()->resetActivePlayers();
-    input_manager->getDeviceList()->setAssignMode(NO_ASSIGN);
-    input_manager->getDeviceList()->setSinglePlayer( NULL );
+    input_manager->getDeviceManager()->setAssignMode(NO_ASSIGN);
+    input_manager->getDeviceManager()->setSinglePlayer( NULL );
     input_manager->setMasterPlayerOnly(false);
 
     // Avoid incorrect behaviour in certain race circumstances:
@@ -113,7 +118,7 @@ void MainMenuScreen::init()
     // select will add a new player). See bug 3090931
     // To avoid this, we will clean the last used device, making
     // the key bindings for the first player the default again.
-    input_manager->getDeviceList()->clearLatestUsedDevice();
+    input_manager->getDeviceManager()->clearLatestUsedDevice();
 
     if (addons_manager->isLoading())
     {
@@ -154,9 +159,11 @@ void MainMenuScreen::init()
 void MainMenuScreen::onUpdate(float delta)
 
 {
+    PlayerProfile *player = PlayerManager::getCurrentPlayer();
     if(PlayerManager::getCurrentOnlineState() == PlayerProfile::OS_GUEST  ||
        PlayerManager::getCurrentOnlineState() == PlayerProfile::OS_SIGNED_IN)
     {
+        m_user_id->setText(player->getLastOnlineName() + "@stk");
         m_online->setActivated();
         m_online->setLabel( _("Online"));
     }
@@ -164,9 +171,14 @@ void MainMenuScreen::onUpdate(float delta)
     {
         m_online->setActivated();
         m_online->setLabel( _("Login" ));
+        m_user_id->setText(player->getName());
     }
-    else // now must be either logging in or logging out
+    else 
+    {
+        // now must be either logging in or logging out
         m_online->setDeactivated();
+        m_user_id->setText(player->getName());
+    }
 
     m_online->setLabel(PlayerManager::getCurrentOnlineId() ? _("Online")
                                                            : _("Login" )  );
@@ -209,6 +221,12 @@ void MainMenuScreen::onUpdate(float delta)
 void MainMenuScreen::eventCallback(Widget* widget, const std::string& name,
                                    const int playerID)
 {
+    if(name=="user-id")
+    {
+        UserScreen::getInstance()->push();
+        return;
+    }
+
     // most interesting stuff is in the ribbons, so start there
     RibbonWidget* ribbon = dynamic_cast<RibbonWidget*>(widget);
 
@@ -251,7 +269,7 @@ void MainMenuScreen::eventCallback(Widget* widget, const std::string& name,
         race_manager->setNumLocalPlayers(0);
         race_manager->startSingleRace("gpwin", 999, false);
         GrandPrixWin* scene = GrandPrixWin::getInstance();
-        StateManager::get()->pushScreen(scene);
+        scene->push();
         const std::string winners[] = { "elephpant", "nolok", "pidgin" };
         scene->setKarts(winners);
     }
@@ -264,7 +282,7 @@ void MainMenuScreen::eventCallback(Widget* widget, const std::string& name,
         race_manager->setNumLocalPlayers(0);
         race_manager->startSingleRace("gplose", 999, false);
         GrandPrixLose* scene = GrandPrixLose::getInstance();
-        StateManager::get()->pushScreen(scene);
+        scene->push();
         std::vector<std::string> losers;
         losers.push_back("nolok");
         losers.push_back("elephpant");
@@ -305,7 +323,7 @@ void MainMenuScreen::eventCallback(Widget* widget, const std::string& name,
                                     L"You unlocked <actual text would go here...>"
                                    );
             scene->addUnlockedTrack(track_manager->getTrack("lighthouse"));
-            StateManager::get()->pushScreen(scene);
+            scene->push();
         }
         else if (selection == "test_unlocked2")
         {
@@ -325,7 +343,7 @@ void MainMenuScreen::eventCallback(Widget* widget, const std::string& name,
 
             scene->addUnlockedPictures(textures, 4.0, 3.0, L"You unlocked <actual text would go here...>");
 
-            StateManager::get()->pushScreen(scene);
+            scene->push();
         }
     }
     else
@@ -335,18 +353,18 @@ void MainMenuScreen::eventCallback(Widget* widget, const std::string& name,
         KartSelectionScreen* s = OfflineKartSelectionScreen::getInstance(); //FIXME : that was for tests
         s->setMultiplayer(false);
         s->setFromOverworld(false);
-        StateManager::get()->pushScreen( s );
+        s->push();
     }
     else if (selection == "multiplayer")
     {
         KartSelectionScreen* s = OfflineKartSelectionScreen::getInstance();
         s->setMultiplayer(true);
         s->setFromOverworld(false);
-        StateManager::get()->pushScreen( s );
+        s->push();
     }
     else if (selection == "options")
     {
-        StateManager::get()->pushScreen( OptionsScreenVideo::getInstance() );
+        OptionsScreenVideo::getInstance()->push();
     }
     else if (selection == "quit")
     {
@@ -355,11 +373,11 @@ void MainMenuScreen::eventCallback(Widget* widget, const std::string& name,
     }
     else if (selection == "about")
     {
-        StateManager::get()->pushScreen(CreditsScreen::getInstance());
+        CreditsScreen::getInstance()->push();
     }
     else if (selection == "help")
     {
-        StateManager::get()->pushScreen(HelpScreen1::getInstance());
+        HelpScreen1::getInstance()->push();
     }
     else if (selection == "startTutorial")
     {
@@ -372,7 +390,7 @@ void MainMenuScreen::eventCallback(Widget* widget, const std::string& name,
         race_manager->setReverseTrack(false);
 
         // Use keyboard 0 by default (FIXME: let player choose?)
-        InputDevice* device = input_manager->getDeviceList()->getKeyboard(0);
+        InputDevice* device = input_manager->getDeviceManager()->getKeyboard(0);
 
         // Create player and associate player with keyboard
         StateManager::get()->createActivePlayer(PlayerManager::getCurrentPlayer(),
@@ -388,8 +406,8 @@ void MainMenuScreen::eventCallback(Widget* widget, const std::string& name,
 
         // ASSIGN should make sure that only input from assigned devices
         // is read.
-        input_manager->getDeviceList()->setAssignMode(ASSIGN);
-        input_manager->getDeviceList()
+        input_manager->getDeviceManager()->setAssignMode(ASSIGN);
+        input_manager->getDeviceManager()
             ->setSinglePlayer( StateManager::get()->getActivePlayer(0) );
 
         StateManager::get()->enterGameState();
@@ -440,11 +458,15 @@ void MainMenuScreen::eventCallback(Widget* widget, const std::string& name,
             return;
         }
         if (PlayerManager::getCurrentOnlineId())
-            StateManager::get()->pushScreen(OnlineScreen::getInstance());
+        {
+            // For 0.8.2 disable the server menu, instead go to online profile
+            //OnlineScreen::getInstance()->push();
+            ProfileManager::get()->setVisiting(PlayerManager::getCurrentOnlineId());
+            OnlineProfileAchievements::getInstance()->push();
+        }
         else
         {
-            BaseUserScreen *login = UserScreen::getInstance();
-            StateManager::get()->pushScreen(login);
+            UserScreen::getInstance()->push();
         }
     }
     else if (selection == "addons")
@@ -460,11 +482,11 @@ void MainMenuScreen::eventCallback(Widget* widget, const std::string& name,
                                 "\"Allow STK to connect to the Internet\"."));
             return;
         }
-        StateManager::get()->pushScreen(AddonsScreen::getInstance());
+        AddonsScreen::getInstance()->push();
     }
     else if (selection == "gpEditor")
     {
-        StateManager::get()->pushScreen(GrandPrixEditorScreen::getInstance());
+        GrandPrixEditorScreen::getInstance()->push();
     }
 }   // eventCallback
 

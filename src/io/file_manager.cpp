@@ -48,7 +48,7 @@
 #  include <direct.h>
 #  include <Windows.h>
 #  include <stdio.h>
-#  ifndef __CYGWIN__
+#  if !defined(__CYGWIN__ ) && !defined(__MINGW32__)
      /*Needed by the remove directory function */
 #    define S_ISDIR(mode)  (((mode) & S_IFMT) == S_IFDIR)
 #    define S_ISREG(mode)  (((mode) & S_IFMT) == S_IFREG)
@@ -114,14 +114,15 @@ FileManager::FileManager()
     m_subdir_name[GFX        ] = "gfx";
     m_subdir_name[GRANDPRIX  ] = "grandprix";
     m_subdir_name[GUI        ] = "gui";
+    m_subdir_name[LIBRARY    ] = "library";
     m_subdir_name[MODEL      ] = "models";
     m_subdir_name[MUSIC      ] = "music";
-    m_subdir_name[TRANSLATION] = "po";
-    m_subdir_name[TEXTURE    ] = "textures";
-    m_subdir_name[SCRIPT     ] = "scripts";
+    m_subdir_name[SCRIPT     ] = "tracks";
     m_subdir_name[SFX        ] = "sfx";
     m_subdir_name[SKIN       ] = "skins";
     m_subdir_name[SHADER     ] = "shaders";
+    m_subdir_name[TEXTURE    ] = "textures";
+    m_subdir_name[TRANSLATION] = "po";
 #ifdef __APPLE__
     // irrLicht's createDevice method has a nasty habit of messing the CWD.
     // since the code above may rely on it, save it to be able to restore
@@ -423,7 +424,9 @@ XMLNode *FileManager::createXMLTreeFromString(const std::string & content)
     {
         char *b = new char[content.size()];
         memcpy(b, content.c_str(), content.size());
-        io::IReadFile * ireadfile = m_file_system->createMemoryReadFile(b, content.size(), "tempfile", true);
+        io::IReadFile * ireadfile =
+            m_file_system->createMemoryReadFile(b, (int)content.size(),
+                                                "tempfile", true);
         io::IXMLReader * reader = m_file_system->createXMLReader(ireadfile);
         XMLNode* node = new XMLNode(reader);
         reader->drop();
@@ -812,7 +815,8 @@ void FileManager::checkAndCreateConfigDir()
     if(m_user_config_dir.size()>0 && *m_user_config_dir.rbegin()!='/')
         m_user_config_dir += "/";
 
-    if(!checkAndCreateDirectory(m_user_config_dir))
+    m_user_config_dir +="0.8.2/";
+    if(!checkAndCreateDirectoryP(m_user_config_dir))
     {
         Log::warn("FileManager", "Can not  create config dir '%s', "
                   "falling back to '.'.", m_user_config_dir.c_str());
@@ -829,7 +833,7 @@ void FileManager::checkAndCreateConfigDir()
 void FileManager::checkAndCreateAddonsDir()
 {
 #if defined(WIN32) || defined(__CYGWIN__)
-    m_addons_dir  = m_user_config_dir+"addons/";
+    m_addons_dir  = m_user_config_dir+"../addons/";
 #elif defined(__APPLE__)
     m_addons_dir  = getenv("HOME");
     m_addons_dir += "/Library/Application Support/SuperTuxKart/Addons/";
@@ -1288,7 +1292,7 @@ bool FileManager::copyFile(const std::string &source, const std::string &dest)
         {
             Log::error("FileManager", "Write error copying '%s' to '%s",
                         source.c_str(), dest.c_str());
-            delete buffer;
+            delete[] buffer;
             fclose(f_source);
             fclose(f_dest);
             return false;
@@ -1296,7 +1300,7 @@ bool FileManager::copyFile(const std::string &source, const std::string &dest)
         }   // if fwrite()!=n
     }   // while
 
-    delete buffer;
+    delete[] buffer;
     fclose(f_source);
     fclose(f_dest);
     return true;

@@ -58,29 +58,25 @@ class TrackInfoScreen : public GUIEngine::Screen,
     /** Check box for reverse mode. */
     GUIEngine::CheckBoxWidget* m_reverse;
 
+    /** The label of the highscore list. */
+    GUIEngine::LabelWidget* m_highscore_label;
+
     /** The icons for the highscore list. */
     GUIEngine::IconButtonWidget* m_kart_icons[HIGHSCORE_COUNT];
 
     /** The actual highscore text values shown. */
     GUIEngine::LabelWidget* m_highscore_entries[HIGHSCORE_COUNT];
-    
+
     void updateHighScores();
-    
+
 public:
     TrackInfoScreen();
     virtual ~TrackInfoScreen();
-    
+
     virtual void init();
     virtual void loadedFromFile();
     virtual void eventCallback(GUIEngine::Widget *,const std::string &name ,
                                const int player_id);
-
-    /** \brief implement callback from parent class GUIEngine::Screen */
-    virtual GUIEngine::EventPropagation filterActions( PlayerAction action,
-                                                       int deviceID,
-                                                       const unsigned int value,
-                                                       Input::InputType type,
-                                                       int playerId) OVERRIDE;
 
     void onEnterPressedInternal();
     void setTrack(Track *track);

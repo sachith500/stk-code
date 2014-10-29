@@ -8,12 +8,14 @@
 #include "config/user_config.hpp"
 #include "graphics/callbacks.hpp"
 #include "graphics/camera.hpp"
+#include "graphics/material_manager.hpp"
 #include "modes/world.hpp"
 #include "utils/helpers.hpp"
 #include "utils/tuple.hpp"
 #include "utils/cpp2011.hpp"
 
-STKMeshSceneNode::STKMeshSceneNode(irr::scene::IMesh* mesh, ISceneNode* parent, irr::scene::ISceneManager* mgr, irr::s32 id,
+STKMeshSceneNode::STKMeshSceneNode(irr::scene::IMesh* mesh, ISceneNode* parent, irr::scene::ISceneManager* mgr,
+    irr::s32 id, const std::string& debug_name,
     const irr::core::vector3df& position,
     const irr::core::vector3df& rotation,
     const irr::core::vector3df& scale, bool createGLMeshes) :
@@ -23,6 +25,8 @@ STKMeshSceneNode::STKMeshSceneNode(irr::scene::IMesh* mesh, ISceneNode* parent, 
     immediate_draw = false;
     update_each_frame = false;
     isGlow = false;
+
+    m_debug_name = debug_name;
 
     if (createGLMeshes)
         this->createGLMeshes();
@@ -40,7 +44,7 @@ void STKMeshSceneNode::createGLMeshes()
     for (u32 i = 0; i<Mesh->getMeshBufferCount(); ++i)
     {
         scene::IMeshBuffer* mb = Mesh->getMeshBuffer(i);
-        GLmeshes.push_back(allocateMeshBuffer(mb));
+        GLmeshes.push_back(allocateMeshBuffer(mb, m_debug_name));
     }
     isMaterialInitialized = false;
     isGLInitialized = false;
@@ -61,8 +65,10 @@ void STKMeshSceneNode::cleanGLMeshes()
             glDeleteBuffers(1, &(mesh.index_buffer));
     }
     GLmeshes.clear();
-    for (unsigned i = 0; i < MAT_COUNT; i++)
+    for (unsigned i = 0; i < Material::SHADERTYPE_COUNT; i++)
         MeshSolidMaterial[i].clearWithoutDeleting();
+    for (unsigned i = 0; i < TM_COUNT; i++)
+        TransparentMesh[i].clearWithoutDeleting();
 }
 
 void STKMeshSceneNode::setMesh(irr::scene::IMesh* mesh)
@@ -130,16 +136,20 @@ void STKMeshSceneNode::updateNoGL()
             }
 
             GLMesh &mesh = GLmeshes[i];
+            Material* material = material_manager->getMaterialFor(mb->getMaterial().getTexture(0), mb);
             if (rnd->isTransparent())
             {
-                TransparentMaterial TranspMat = MaterialTypeToTransparentMaterial(type, MaterialTypeParam);
+                TransparentMaterial TranspMat = MaterialTypeToTransparentMaterial(type, MaterialTypeParam, material);
                 if (!immediate_draw)
                     TransparentMesh[TranspMat].push_back(&mesh);
             }
             else
             {
                 assert(!isDisplacement);
-                MeshMaterial MatType = MaterialTypeToMeshMaterial(type, mb->getVertexType());
+                Material* material2 = NULL;
+                if (mb->getMaterial().getTexture(1) != NULL)
+                    material2 = material_manager->getMaterialFor(mb->getMaterial().getTexture(1), mb);
+                Material::ShaderType MatType = MaterialTypeToMeshMaterial(type, mb->getVertexType(), material, material2);
                 if (!immediate_draw)
                     MeshSolidMaterial[MatType].push_back(&mesh);
             }
@@ -169,16 +179,21 @@ void STKMeshSceneNode::updateGL()
 
         irr::video::IVideoDriver* driver = irr_driver->getVideoDriver();
         video::E_MATERIAL_TYPE type = mb->getMaterial().MaterialType;
-        f32 MaterialTypeParam = mb->getMaterial().MaterialTypeParam;
         video::IMaterialRenderer* rnd = driver->getMaterialRenderer(type);
 
 
         if (!rnd->isTransparent())
         {
-            MeshMaterial MatType = MaterialTypeToMeshMaterial(type, mb->getVertexType()); 
+            Material* material = material_manager->getMaterialFor(mb->getMaterial().getTexture(0), mb);
+            Material* material2 = NULL;
+            if (mb->getMaterial().getTexture(1) != NULL)
+                material2 = material_manager->getMaterialFor(mb->getMaterial().getTexture(1), mb);
+            Material::ShaderType MatType = MaterialTypeToMeshMaterial(type, mb->getVertexType(), material, material2);
             if (!immediate_draw)
                 InitTextures(mesh, MatType);
         }
+        else if (!immediate_draw)
+            InitTexturesTransparent(mesh);
 
         if (!immediate_draw && irr_driver->hasARB_base_instance())
         {
@@ -251,19 +266,17 @@ void STKMeshSceneNode::render()
             GLenum itype = mesh.IndexType;
             size_t count = mesh.IndexCount;
 
-            if (!mesh.textures[0])
-                mesh.textures[0] = getUnicolorTexture(video::SColor(255, 255, 255, 255));
             compressTexture(mesh.textures[0], true);
             if (UserConfigParams::m_azdo)
             {
                 if (!mesh.TextureHandles[0])
-                    mesh.TextureHandles[0] = glGetTextureSamplerHandleARB(getTextureGLuint(mesh.textures[0]), MeshShader::TransparentFogShader::getInstance()->SamplersId[0]);
+                    mesh.TextureHandles[0] = glGetTextureSamplerHandleARB(getTextureGLuint(mesh.textures[0]), MeshShader::ObjectPass1Shader::getInstance()->SamplersId[0]);
                 if (!glIsTextureHandleResidentARB(mesh.TextureHandles[0]))
                     glMakeTextureHandleResidentARB(mesh.TextureHandles[0]);
-                MeshShader::ObjectPass1Shader::getInstance()->SetTextureHandles(createVector<uint64_t>(mesh.TextureHandles[0]));
+                MeshShader::ObjectPass1Shader::getInstance()->SetTextureHandles(mesh.TextureHandles[0]);
             }
             else
-                MeshShader::ObjectPass1Shader::getInstance()->SetTextureUnits(std::vector < GLuint > { getTextureGLuint(mesh.textures[0]) });
+                MeshShader::ObjectPass1Shader::getInstance()->SetTextureUnits(getTextureGLuint(mesh.textures[0]));
             MeshShader::ObjectPass1Shader::getInstance()->setUniforms(AbsoluteTransformation, invmodel);
             assert(mesh.vao);
             glBindVertexArray(mesh.vao);
@@ -282,8 +295,6 @@ void STKMeshSceneNode::render()
         glDisable(GL_CULL_FACE);
         if (update_each_frame && !UserConfigParams::m_dynamic_lights)
             updatevbo();
-        if (!spareWhiteTex)
-            spareWhiteTex = getUnicolorTexture(video::SColor(255, 255, 255, 255));
         glUseProgram(MeshShader::ObjectPass2Shader::getInstance()->Program);
         // Only untextured
         for (unsigned i = 0; i < GLmeshes.size(); i++)
@@ -309,17 +320,22 @@ void STKMeshSceneNode::render()
                     glMakeTextureHandleResidentARB(SSAOHandle);
 
                 if (!mesh.TextureHandles[0])
-                    mesh.TextureHandles[0] = glGetTextureSamplerHandleARB(getTextureGLuint(spareWhiteTex), MeshShader::TransparentFogShader::getInstance()->SamplersId[0]);
+                    mesh.TextureHandles[0] = glGetTextureSamplerHandleARB(getTextureGLuint(mesh.textures[0]), MeshShader::ObjectPass2Shader::getInstance()->SamplersId[0]);
                 if (!glIsTextureHandleResidentARB(mesh.TextureHandles[0]))
                     glMakeTextureHandleResidentARB(mesh.TextureHandles[0]);
-                MeshShader::ObjectPass2Shader::getInstance()->SetTextureHandles(createVector<uint64_t>(DiffuseHandle, SpecularHandle, SSAOHandle, mesh.TextureHandles[0]));
+                if (!mesh.TextureHandles[1])
+                    mesh.TextureHandles[1] = glGetTextureSamplerHandleARB(getTextureGLuint(mesh.textures[1]), MeshShader::ObjectPass2Shader::getInstance()->SamplersId[0]);
+                if (!glIsTextureHandleResidentARB(mesh.TextureHandles[1]))
+                    glMakeTextureHandleResidentARB(mesh.TextureHandles[1]);
+                MeshShader::ObjectPass2Shader::getInstance()->SetTextureHandles(DiffuseHandle, SpecularHandle, SSAOHandle, mesh.TextureHandles[0], mesh.TextureHandles[1]);
             }
             else
-                MeshShader::ObjectPass2Shader::getInstance()->SetTextureUnits(createVector<GLuint>(
+                MeshShader::ObjectPass2Shader::getInstance()->SetTextureUnits(
                 irr_driver->getRenderTargetTexture(RTT_DIFFUSE),
                 irr_driver->getRenderTargetTexture(RTT_SPECULAR),
                 irr_driver->getRenderTargetTexture(RTT_HALF1_R),
-                getTextureGLuint(spareWhiteTex)));
+                getTextureGLuint(mesh.textures[0]),
+                getTextureGLuint(mesh.textures[1]));
             MeshShader::ObjectPass2Shader::getInstance()->setUniforms(AbsoluteTransformation, mesh.TextureMatrix);
             assert(mesh.vao);
             glBindVertexArray(mesh.vao);
@@ -381,8 +397,6 @@ void STKMeshSceneNode::render()
                         tmpcol.getGreen() / 255.0f,
                         tmpcol.getBlue() / 255.0f);
 
-                    if (!mesh.textures[0])
-                        mesh.textures[0] = getUnicolorTexture(video::SColor(255, 255, 255, 255));
                     compressTexture(mesh.textures[0], true);
                     if (UserConfigParams::m_azdo)
                     {
@@ -390,10 +404,10 @@ void STKMeshSceneNode::render()
                             mesh.TextureHandles[0] = glGetTextureSamplerHandleARB(getTextureGLuint(mesh.textures[0]), MeshShader::TransparentFogShader::getInstance()->SamplersId[0]);
                         if (!glIsTextureHandleResidentARB(mesh.TextureHandles[0]))
                             glMakeTextureHandleResidentARB(mesh.TextureHandles[0]);
-                        MeshShader::TransparentFogShader::getInstance()->SetTextureHandles(createVector<uint64_t>(mesh.TextureHandles[0]));
+                        MeshShader::TransparentFogShader::getInstance()->SetTextureHandles(mesh.TextureHandles[0]);
                     }
                     else
-                        MeshShader::TransparentFogShader::getInstance()->SetTextureUnits(std::vector<GLuint>{ getTextureGLuint(mesh.textures[0]) });
+                        MeshShader::TransparentFogShader::getInstance()->SetTextureUnits(getTextureGLuint(mesh.textures[0]));
                     MeshShader::TransparentFogShader::getInstance()->setUniforms(AbsoluteTransformation, mesh.TextureMatrix, fogmax, startH, endH, start, end, col);
 
                     assert(mesh.vao);
@@ -412,8 +426,7 @@ void STKMeshSceneNode::render()
                     GLenum ptype = mesh.PrimitiveType;
                     GLenum itype = mesh.IndexType;
                     size_t count = mesh.IndexCount;
-                    if (!mesh.textures[0])
-                        mesh.textures[0] = getUnicolorTexture(video::SColor(255, 255, 255, 255));
+
                     compressTexture(mesh.textures[0], true);
                     if (UserConfigParams::m_azdo)
                     {
@@ -421,10 +434,10 @@ void STKMeshSceneNode::render()
                             mesh.TextureHandles[0] = glGetTextureSamplerHandleARB(getTextureGLuint(mesh.textures[0]), MeshShader::TransparentShader::getInstance()->SamplersId[0]);
                         if (!glIsTextureHandleResidentARB(mesh.TextureHandles[0]))
                             glMakeTextureHandleResidentARB(mesh.TextureHandles[0]);
-                        MeshShader::TransparentShader::getInstance()->SetTextureHandles(createVector<uint64_t>(mesh.TextureHandles[0]));
+                        MeshShader::TransparentShader::getInstance()->SetTextureHandles(mesh.TextureHandles[0]);
                     }
                     else
-                        MeshShader::TransparentShader::getInstance()->SetTextureUnits(std::vector<GLuint>{ getTextureGLuint(mesh.textures[0]) });
+                        MeshShader::TransparentShader::getInstance()->SetTextureUnits(getTextureGLuint(mesh.textures[0]));
 
                     MeshShader::TransparentShader::getInstance()->setUniforms(AbsoluteTransformation, mesh.TextureMatrix);
                     assert(mesh.vao);
@@ -435,18 +448,5 @@ void STKMeshSceneNode::render()
             }
             return;
         }
-
-        GLMesh* mesh;
-        if (!TransparentMesh[TM_BUBBLE].empty())
-            glUseProgram(MeshShader::BubbleShader::Program);
-        if (irr_driver->hasARB_base_instance())
-            glBindVertexArray(VAOManager::getInstance()->getVAO(video::EVT_STANDARD));
-        for_in(mesh, TransparentMesh[TM_BUBBLE])
-        {
-            if (irr_driver->hasARB_base_instance())
-                glBindVertexArray(mesh->vao);
-            drawBubble(*mesh, ModelViewProjectionMatrix);
-        }
-        return;
     }
 }

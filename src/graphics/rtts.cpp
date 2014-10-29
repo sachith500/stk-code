@@ -89,8 +89,6 @@ RTT::RTT(size_t width, size_t height)
     const dimension2du shadowsize1(shadowside / 2, shadowside / 2);
     const dimension2du shadowsize2(shadowside / 4, shadowside / 4);
     const dimension2du shadowsize3(shadowside / 8, shadowside / 8);
-    const dimension2du warpvsize(1, 512);
-    const dimension2du warphsize(512, 1);
 
     unsigned linear_depth_mip_levels = int(ceilf(log2f( float(max_(res.Width, res.Height)) )));
 
@@ -111,8 +109,8 @@ RTT::RTT(size_t width, size_t height)
     RenderTargetTextures[RTT_MLAA_BLEND] = generateRTT(res, GL_SRGB8_ALPHA8, GL_BGR, GL_UNSIGNED_BYTE);
     RenderTargetTextures[RTT_SSAO] = generateRTT(res, GL_R16F, GL_RED, GL_FLOAT);
     RenderTargetTextures[RTT_DISPLACE] = generateRTT(res, GL_RGBA16F, GL_BGRA, GL_FLOAT);
-    RenderTargetTextures[RTT_DIFFUSE] = generateRTT(res, GL_RGBA16F, GL_BGRA, GL_FLOAT);
-    RenderTargetTextures[RTT_SPECULAR] = generateRTT(res, GL_RGBA16F, GL_BGRA, GL_FLOAT);
+    RenderTargetTextures[RTT_DIFFUSE] = generateRTT(res, GL_R11F_G11F_B10F, GL_BGR, GL_FLOAT);
+    RenderTargetTextures[RTT_SPECULAR] = generateRTT(res, GL_R11F_G11F_B10F, GL_BGR, GL_FLOAT);
 
     RenderTargetTextures[RTT_HALF1] = generateRTT(half, GL_RGBA16F, GL_BGRA, GL_FLOAT);
     RenderTargetTextures[RTT_QUARTER1] = generateRTT(quarter, GL_RGBA16F, GL_BGRA, GL_FLOAT);
@@ -179,9 +177,6 @@ RTT::RTT(size_t width, size_t height)
     somevector.clear();
     somevector.push_back(RenderTargetTextures[RTT_HALF1_R]);
     FrameBuffers.push_back(new FrameBuffer(somevector, half.Width, half.Height));
-    // Clear this FBO to 1s so that if no SSAO is computed we can still use it.
-    glClearColor(1., 1., 1., 1.);
-    glClear(GL_COLOR_BUFFER_BIT);
 
     somevector.clear();
     somevector.push_back(RenderTargetTextures[RTT_HALF2]);
@@ -258,6 +253,15 @@ RTT::RTT(size_t width, size_t height)
         somevector.push_back(RH_Blue);
         m_RH_FBO = new FrameBuffer(somevector, 32, 16, true);
     }
+
+    // Clear this FBO to 1s so that if no SSAO is computed we can still use it.
+    getFBO(FBO_HALF1_R).Bind();
+    glClearColor(1., 1., 1., 1.);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    getFBO(FBO_COMBINED_DIFFUSE_SPECULAR).Bind();
+    glClearColor(.5, .5, .5, .5);
+    glClear(GL_COLOR_BUFFER_BIT);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 

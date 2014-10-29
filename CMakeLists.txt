@@ -3,6 +3,10 @@ project(SuperTuxKart)
 set(PROJECT_VERSION "0.8.1")
 
 cmake_minimum_required(VERSION 2.8.1)
+if(NOT (CMAKE_MAJOR_VERSION VERSION_LESS 3))
+  cmake_policy(SET CMP0043 OLD)
+endif()
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 
 include(BuildTypeSTKRelease)
@@ -55,6 +59,10 @@ include_directories("${PROJECT_SOURCE_DIR}/lib/bullet/src")
 add_subdirectory("${PROJECT_SOURCE_DIR}/lib/enet")
 include_directories("${PROJECT_SOURCE_DIR}/lib/enet/include")
 
+# Build glew library
+add_subdirectory("${PROJECT_SOURCE_DIR}/lib/glew")
+include_directories("${PROJECT_SOURCE_DIR}/lib/glew/include")
+
 # Build the irrlicht library
 add_subdirectory("${PROJECT_SOURCE_DIR}/lib/irrlicht")
 include_directories("${PROJECT_SOURCE_DIR}/lib/irrlicht/include")
@@ -82,11 +90,7 @@ if(WIN32)
     set(ENV{PATH} "$ENV{PATH};${PROJECT_SOURCE_DIR}/dependencies/include")
     set(ENV{LIB} ${PROJECT_SOURCE_DIR}/dependencies/lib)
     set(ENV{OPENALDIR} ${PROJECT_SOURCE_DIR}/dependencies)
-    if(MSVC)
-        add_definitions(/D_IRR_STATIC_LIB_)
-    elseif(MINGW)
-        add_definitions(-D_IRR_STATIC_LIB_)
-    endif()
+    add_definitions(-D_IRR_STATIC_LIB_)
 endif()
 
 
@@ -144,17 +148,13 @@ endif()
 
 if(UNIX OR MINGW)
 #    if(USE_CPP2011)
-        add_definitions("-std=gnu++0x")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++0x")
 #    endif()
 endif()
 
 # OpenGL
 find_package(OpenGL REQUIRED)
 include_directories(${OPENGL_INCLUDE_DIR})
-
-# Glew
-find_package(GLEW REQUIRED)
-include_directories(${GLEW_INCLUDE_DIR})
 
 if(UNIX AND NOT APPLE)
     if(USE_XRANDR)
@@ -170,8 +170,8 @@ endif()
 
 
 # Set some compiler options
-if(UNIX)
-    add_definitions(-Wall)
+if(UNIX OR MINGW)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 endif()
 
 if(WIN32)
@@ -180,6 +180,9 @@ if(WIN32)
 
     # And shut up about unsafe stuff
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+endif()
+
+if(MSVC)
     # VS will automatically add NDEBUG for release mode, but only _DEBUG in debug mode.
     # Since STK uses DEBUG, this is added for debug compilation only:
     set_property(DIRECTORY PROPERTY COMPILE_DEFINITIONS_DEBUG DEBUG)
@@ -196,7 +199,7 @@ endif()
 # TODO: remove this switch
 add_definitions(-DHAVE_OGGVORBIS)
 
-if(WIN32 AND NOT MINGW)
+if(WIN32)
     configure_file("${STK_SOURCE_DIR}/windows_installer/icon_rc.template" "${PROJECT_BINARY_DIR}/tmp/icon.rc")
 endif()
 
@@ -272,13 +275,14 @@ target_link_libraries(supertuxkart
     bulletcollision
     bulletmath
     enet
+    glew
     stkirrlicht
     angelscript
     ${CURL_LIBRARIES}
     ${OGGVORBIS_LIBRARIES}
     ${OPENAL_LIBRARY}
     ${OPENGL_LIBRARIES}
-    ${GLEW_LIBRARIES})
+    )
 
 if(UNIX AND NOT APPLE)
     if(USE_XRANDR)
@@ -287,8 +291,7 @@ if(UNIX AND NOT APPLE)
         target_link_libraries(supertuxkart ${IRRLICHT_XF86VM_LIBRARY})
     endif()
     if(USE_ASAN)
-        add_definitions("-fsanitize=address")
-        add_definitions("-fno-omit-frame-pointer")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
         target_link_libraries(supertuxkart "-fsanitize=address")
     endif()
 endif()
@@ -314,11 +317,7 @@ if(USE_WIIUSE)
         find_library(BLUETOOTH_LIBRARY NAMES IOBluetooth PATHS /Developer/Library/Frameworks/IOBluetooth.framework)
         target_link_libraries(supertuxkart wiiuse ${BLUETOOTH_LIBRARY})
     elseif(WIN32)
-        if(MSVC)
-            add_definitions("/DWIIUSE_STATIC")
-        else()
-            add_definitions("-DWIIUSE_STATIC")
-        endif()
+        add_definitions(-DWIIUSE_STATIC)
         if(WIIUSE_BUILD)
             target_link_libraries(supertuxkart wiiuse)
         else()

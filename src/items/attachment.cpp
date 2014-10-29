@@ -59,7 +59,7 @@ Attachment::Attachment(AbstractKart* kart)
     // If we attach a NULL mesh, we get a NULL scene node back. So we
     // have to attach some kind of mesh, but make it invisible.
     m_node = irr_driver->addAnimatedMesh(
-                         attachment_manager->getMesh(Attachment::ATTACH_BOMB));
+                         attachment_manager->getMesh(Attachment::ATTACH_BOMB), "bomb");
 #ifdef DEBUG
     std::string debug_name = kart->getIdent()+" (attachment)";
     m_node->setName(debug_name.c_str());
@@ -80,13 +80,13 @@ Attachment::~Attachment()
 
     if (m_bomb_sound)
     {
-        sfx_manager->deleteSFX(m_bomb_sound);
+        m_bomb_sound->deleteSFX();
         m_bomb_sound = NULL;
     }
     
     if (m_bubble_explode_sound)
     {
-        sfx_manager->deleteSFX(m_bubble_explode_sound);
+        m_bubble_explode_sound->deleteSFX();
         m_bubble_explode_sound = NULL;
     }
 }   // ~Attachment
@@ -113,7 +113,7 @@ void Attachment::set(AttachmentType type, float time,
         bomb_scene_node = m_node;
 
         m_node = irr_driver->addAnimatedMesh(
-                     attachment_manager->getMesh(Attachment::ATTACH_BOMB));
+                     attachment_manager->getMesh(Attachment::ATTACH_BOMB), "bomb");
 #ifdef DEBUG
         std::string debug_name = m_kart->getIdent() + " (attachment)";
         m_node->setName(debug_name.c_str());
@@ -139,10 +139,10 @@ void Attachment::set(AttachmentType type, float time,
         break;
     case ATTACH_BOMB:
         m_node->setMesh(attachment_manager->getMesh(type));
-        if (m_bomb_sound) sfx_manager->deleteSFX(m_bomb_sound);
-        m_bomb_sound = sfx_manager->createSoundSource("clock");
+        if (m_bomb_sound) m_bomb_sound->deleteSFX();
+        m_bomb_sound = SFXManager::get()->createSoundSource("clock");
         m_bomb_sound->setLoop(true);
-        m_bomb_sound->position(m_kart->getXYZ());
+        m_bomb_sound->setPosition(m_kart->getXYZ());
         m_bomb_sound->play();
         break;
     default:
@@ -198,8 +198,7 @@ void Attachment::clear()
 
     if (m_bomb_sound)
     {
-        m_bomb_sound->stop();
-        sfx_manager->deleteSFX(m_bomb_sound);
+        m_bomb_sound->deleteSFX();
         m_bomb_sound = NULL;
     }
 
@@ -440,7 +439,7 @@ void Attachment::update(float dt)
         break;
     case ATTACH_BOMB:
 
-        if (m_bomb_sound) m_bomb_sound->position(m_kart->getXYZ());
+        if (m_bomb_sound) m_bomb_sound->setPosition(m_kart->getXYZ());
 
         // Mesh animation frames are 1 to 61 frames (60 steps)
         // The idea is change second by second, counterclockwise 60 to 0 secs
@@ -460,8 +459,7 @@ void Attachment::update(float dt)
 
             if (m_bomb_sound)
             {
-                m_bomb_sound->stop();
-                sfx_manager->deleteSFX(m_bomb_sound);
+                m_bomb_sound->deleteSFX();
                 m_bomb_sound = NULL;
             }
         }
@@ -474,9 +472,9 @@ void Attachment::update(float dt)
         if (m_time_left < 0)
         {
             m_time_left = 0.0f;
-            if (m_bubble_explode_sound) sfx_manager->deleteSFX(m_bubble_explode_sound);
-            m_bubble_explode_sound = sfx_manager->createSoundSource("bubblegum_explode");
-            m_bubble_explode_sound->position(m_kart->getXYZ());
+            if (m_bubble_explode_sound) m_bubble_explode_sound->deleteSFX();
+            m_bubble_explode_sound = SFXManager::get()->createSoundSource("bubblegum_explode");
+            m_bubble_explode_sound->setPosition(m_kart->getXYZ());
             m_bubble_explode_sound->play();
             
             // drop a small bubble gum

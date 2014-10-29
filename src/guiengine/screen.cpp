@@ -94,6 +94,15 @@ void Screen::init()
 }   // init
 
 // -----------------------------------------------------------------------------
+/** Displays this screen bu pushing it onto the stack of screen
+ *  in the state manager. 
+ */
+void Screen::push()
+{
+    StateManager::get()->pushScreen(this);
+}   // push
+
+// -----------------------------------------------------------------------------
 /** Prepares removal of this screen. If necessary this will unpause the
  *  race (so this means that if you have several consecutive screens while
  *  the race is running the race will be unpaused and paused when switching
@@ -178,11 +187,11 @@ void Screen::addWidgets()
 
     addWidgetsRecursively( m_widgets );
 
-    //std::cout << "*****ScreenAddWidgets " << m_filename.c_str() << " : focusing the first widget*****\n";
+    //Log::info("Screen::AddWidgets", "%s: focusing the first widget",  m_filename.c_str());
 
     // select the first widget (for first players only; if other players need some focus the Screen must provide it).
     Widget* w = getFirstWidget();
-    //std::cout << "First widget is " << (w == NULL ? "null" : w->m_properties[PROP_ID].c_str()) << std::endl;
+    //Log::info("Screen::AddWidgets", "First widget is %s", (w == NULL ? "null" : w->m_properties[PROP_ID].c_str()));
     if (w != NULL) w->setFocusForPlayer( PLAYER_ID_GAME_MASTER );
     else           Log::warn("Screen::AddWidgets", "Couldn't select first widget, NULL was returned");
 }   // addWidgets

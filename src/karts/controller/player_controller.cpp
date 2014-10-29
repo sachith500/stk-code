@@ -20,7 +20,6 @@
 #include "karts/controller/player_controller.hpp"
 
 #include "audio/sfx_base.hpp"
-#include "audio/sfx_manager.hpp"
 #include "config/stk_config.hpp"
 #include "config/user_config.hpp"
 #include "graphics/camera.hpp"
@@ -61,11 +60,11 @@ PlayerController::PlayerController(AbstractKart *kart,
     // Keep a pointer to the camera to remove the need to search for
     // the right camera once per frame later.
     m_camera       = Camera::createCamera(kart);
-    m_bzzt_sound   = sfx_manager->createSoundSource( "bzzt" );
-    m_wee_sound    = sfx_manager->createSoundSource( "wee"  );
-    m_ugh_sound    = sfx_manager->createSoundSource( "ugh"  );
-    m_grab_sound   = sfx_manager->createSoundSource( "grab_collectable" );
-    m_full_sound   = sfx_manager->createSoundSource( "energy_bar_full" );
+    m_bzzt_sound   = SFXManager::get()->createSoundSource( "bzzt" );
+    m_wee_sound    = SFXManager::get()->createSoundSource( "wee"  );
+    m_ugh_sound    = SFXManager::get()->createSoundSource( "ugh"  );
+    m_grab_sound   = SFXManager::get()->createSoundSource( "grab_collectable" );
+    m_full_sound   = SFXManager::get()->createSoundSource( "energy_bar_full" );
 
     reset();
 }   // PlayerController
@@ -75,11 +74,11 @@ PlayerController::PlayerController(AbstractKart *kart,
  */
 PlayerController::~PlayerController()
 {
-    sfx_manager->deleteSFX(m_bzzt_sound);
-    sfx_manager->deleteSFX(m_wee_sound );
-    sfx_manager->deleteSFX(m_ugh_sound );
-    sfx_manager->deleteSFX(m_grab_sound);
-    sfx_manager->deleteSFX(m_full_sound);
+    m_bzzt_sound->deleteSFX();
+    m_wee_sound ->deleteSFX();
+    m_ugh_sound ->deleteSFX();
+    m_grab_sound->deleteSFX();
+    m_full_sound->deleteSFX();
 }   // ~PlayerController
 
 //-----------------------------------------------------------------------------
@@ -93,6 +92,7 @@ void PlayerController::reset()
     m_prev_brake   = 0;
     m_prev_accel   = 0;
     m_prev_nitro   = false;
+    m_sound_schedule = false;
     m_penalty_time = 0;
 }   // reset
 
@@ -109,6 +109,7 @@ void PlayerController::resetInputState()
     m_prev_brake            = 0;
     m_prev_accel            = 0;
     m_prev_nitro            = false;
+    m_sound_schedule        = false;
     m_controls->reset();
 }   // resetInputState
 
@@ -379,14 +380,20 @@ void PlayerController::update(float dt)
     // Only accept rescue if there is no kart animation is already playing
     // (e.g. if an explosion happens, wait till the explosion is over before
     // starting any other animation).
-    if ( m_controls->m_rescue && !m_kart->getKartAnimation() )
+    if (m_controls->m_rescue && !m_kart->getKartAnimation())
     {
         new RescueAnimation(m_kart);
         m_controls->m_rescue=false;
     }
-    if (m_kart->getKartAnimation() &&
+
+    if (m_kart->getKartAnimation() && m_sound_schedule == false &&
         m_kart->getAttachment()->getType() != Attachment::ATTACH_TINYTUX)
     {
+        m_sound_schedule = true;
+    }
+    else if (!m_kart->getKartAnimation() && m_sound_schedule == true)
+    {
+        m_sound_schedule = false;
         m_bzzt_sound->play();
     }
 }   // update
@@ -432,7 +439,7 @@ void PlayerController::handleZipper(bool play_sound)
     // Only play a zipper sound if it's not already playing, and
     // if the material has changed (to avoid machine gun effect
     // on conveyor belt zippers).
-    if (play_sound || (m_wee_sound->getStatus() != SFXManager::SFX_PLAYING &&
+    if (play_sound || (m_wee_sound->getStatus() != SFXBase::SFX_PLAYING &&
                        m_kart->getMaterial()!=m_kart->getLastMaterial()      ) )
     {
         m_wee_sound->play();

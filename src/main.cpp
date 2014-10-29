@@ -147,6 +147,7 @@
 #include "audio/music_manager.hpp"
 #include "audio/sfx_manager.hpp"
 #include "challenges/unlock_manager.hpp"
+#include "config/hardware_stats.hpp"
 #include "config/player_manager.hpp"
 #include "config/player_profile.hpp"
 #include "config/stk_config.hpp"
@@ -161,6 +162,7 @@
 #include "guiengine/dialog_queue.hpp"
 #include "input/device_manager.hpp"
 #include "input/input_manager.hpp"
+#include "input/keyboard_device.hpp"
 #include "input/wiimote_manager.hpp"
 #include "io/file_manager.hpp"
 #include "items/attachment_manager.hpp"
@@ -399,7 +401,7 @@ void setupRaceStart()
     InputDevice *device;
 
     // Use keyboard 0 by default in --no-start-screen
-    device = input_manager->getDeviceList()->getKeyboard(0);
+    device = input_manager->getDeviceManager()->getKeyboard(0);
 
     // Create player and associate player with keyboard
     StateManager::get()->createActivePlayer(
@@ -420,7 +422,7 @@ void setupRaceStart()
 
     // ASSIGN should make sure that only input from assigned devices
     // is read.
-    input_manager->getDeviceList()->setAssignMode(ASSIGN);
+    input_manager->getDeviceManager()->setAssignMode(ASSIGN);
 }   // setupRaceStart
 
 // ----------------------------------------------------------------------------
@@ -428,7 +430,7 @@ void setupRaceStart()
  */
 void cmdLineHelp()
 {
-    Log::info("main",
+    fprintf(stdout,
     "Usage: %s [OPTIONS]\n\n"
     "Run SuperTuxKart, a racing game with go-kart that features"
     " the Tux and friends.\n\n"
@@ -451,8 +453,6 @@ void cmdLineHelp()
     "       --mode=N           N=1 novice, N=2 driver, N=3 racer.\n"
     "       --type=N           N=0 Normal, N=1 Time trial, N=2 FTL\n"
     "       --reverse          Play track in reverse (if allowed)\n"
-    // TODO: add back "--players" switch
-    // "       --players n      Define number of players to between 1 and 4.\n"
     "  -f,  --fullscreen       Select fullscreen display.\n"
     "  -w,  --windowed         Windowed display (default).\n"
     "  -s,  --screensize=WxH   Set the screen size (e.g. 320x200).\n"
@@ -771,7 +771,7 @@ int handleCmdLine()
         const std::vector<std::string> l=StringUtils::split(std::string(s),',');
         race_manager->setDefaultAIKartList(l);
         // Add 1 for the player kart
-        race_manager->setNumKarts(l.size()+1);
+        race_manager->setNumKarts((int)l.size()+1);
     }   // --ai
 
     if(CommandLine::has( "--mode", &s))
@@ -1073,7 +1073,7 @@ void initRest()
     NewsManager::get();   // this will create the news manager
 
     music_manager           = new MusicManager();
-    sfx_manager             = new SFXManager();
+    SFXManager::create();
     // The order here can be important, e.g. KartPropertiesManager needs
     // defaultKartProperties, which are defined in stk_config.
     history                 = new History              ();
@@ -1128,8 +1128,17 @@ void askForInternetPermission()
         public:
             virtual void onConfirm()
             {
+                // Typically internet is disabled here (just better safe
+                // than sorry). If internet should be allowed, the news
+                // manager needs to be started (which in turn activates
+                // the addons manager).
+                bool need_to_start_news_manager = 
+                     UserConfigParams::m_internet_status!=
+                                       Online::RequestManager::IPERM_ALLOWED;
                 UserConfigParams::m_internet_status =
                     Online::RequestManager::IPERM_ALLOWED;
+                if(need_to_start_news_manager)
+                    NewsManager::get()->init(false);
                 GUIEngine::ModalDialog::dismiss();
             }   // onConfirm
             // --------------------------------------------------------
@@ -1142,12 +1151,13 @@ void askForInternetPermission()
         };   // ConfirmServer
 
         new MessageDialog(_("SuperTuxKart may connect to a server "
-            "to download add-ons and notify you of updates. Would you "
-            "like this feature to be enabled? (To change this setting "
+            "to download add-ons and notify you of updates. We also collect "
+            "anonymous hardware statistics to help with the development of STK. "
+            "Would you like this feature to be enabled? (To change this setting "
             "at a later time, go to options, select tab "
             "'User Interface', and edit \"Allow STK to connect to the "
-            "Internet\")."),
-            MessageDialog::MESSAGE_DIALOG_CONFIRM,
+            "Internet\" and \"Allow STK to send anonymous HW statistics\")."),
+            MessageDialog::MESSAGE_DIALOG_YESNO,
             new ConfirmServer(), true);
     }
 
@@ -1198,7 +1208,14 @@ int main(int argc, char *argv[] )
         // Get into menu mode initially.
         input_manager->setMode(InputManager::MENU);
         main_loop = new MainLoop();
-        material_manager        -> loadMaterial    ();
+        material_manager->loadMaterial();
+
+        // Load the font textures - they are all lazily loaded
+        // so no need to push a texture search path. They will actually
+        // be loaded from ScalableFont.
+        material_manager->addSharedMaterial(
+                   file_manager->getAsset(FileManager::FONT,"materials.xml"));
+
         GUIEngine::addLoadingIcon( irr_driver->getTexture(FileManager::GUI,
                                                           "options_video.png"));
         kart_properties_manager -> loadAllKarts    ();
@@ -1287,6 +1304,13 @@ int main(int argc, char *argv[] )
             }
         }
 
+        // Note that on the very first run of STK internet status is set to
+        // "not asked", so the report will only be sent in the next run.
+        if(UserConfigParams::m_internet_status==Online::RequestManager::IPERM_ALLOWED)
+        {
+            HardwareStats::reportHardwareStats();
+        }
+
         if(!UserConfigParams::m_no_start_screen)
         {
             // If there is a current player, it was saved in the config file,
@@ -1296,16 +1320,16 @@ int main(int argc, char *argv[] )
             if(PlayerManager::getCurrentPlayer() && !
                 UserConfigParams::m_always_show_login_screen)
             {
-                StateManager::get()->pushScreen(MainMenuScreen::getInstance());
+                MainMenuScreen::getInstance()->push();
             }
             else
             {
-                StateManager::get()->pushScreen(UserScreen::getInstance());
+                UserScreen::getInstance()->push();
                 // If there is no player, push the RegisterScreen on top of
                 // the login screen. This way on first start players are
                 // forced to create a player.
                 if(PlayerManager::get()->getNumPlayers()==0)
-                    StateManager::get()->pushScreen(RegisterScreen::getInstance());
+                    RegisterScreen::getInstance()->push();
             }
 #ifdef ENABLE_WIIUSE
             // Show a dialog to allow connection of wiimotes. */
@@ -1409,8 +1433,6 @@ int main(int argc, char *argv[] )
     }
 #endif
 
-
-
     return 0 ;
 }   // main
 
@@ -1435,6 +1457,7 @@ static void cleanSuperTuxKart()
     if(Online::RequestManager::isRunning())
         Online::RequestManager::get()->stopNetworkThread();
 
+    SFXManager::get()->stopThread();
     irr_driver->updateConfigIfRelevant();
     AchievementsManager::destroy();
     Referee::cleanup();
@@ -1451,7 +1474,7 @@ static void cleanSuperTuxKart()
     if(material_manager)        delete material_manager;
     if(history)                 delete history;
     ReplayRecorder::destroy();
-    if(sfx_manager)             delete sfx_manager;
+    SFXManager::destroy();
     if(music_manager)           delete music_manager;
     delete ParticleKindManager::get();
     PlayerManager::destroy();

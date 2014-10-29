@@ -3,6 +3,7 @@ layout(location = 0) in vec3 Position;
 layout(location = 1) in vec3 Normal;
 layout(location = 2) in vec4 Color;
 layout(location = 3) in vec2 Texcoord;
+layout(location = 4) in vec2 SecondTexcoord;
 layout(location = 5) in vec3 Tangent;
 layout(location = 6) in vec3 Bitangent;
 
@@ -12,6 +13,7 @@ layout(location = 9) in vec3 Scale;
 #ifdef GL_ARB_bindless_texture
 layout(location = 10) in sampler2D Handle;
 layout(location = 11) in sampler2D SecondHandle;
+layout(location = 13) in sampler2D ThirdHandle;
 #endif
 
 #else
@@ -31,10 +33,12 @@ out vec3 nor;
 out vec3 tangent;
 out vec3 bitangent;
 out vec2 uv;
+out vec2 uv_bis;
 out vec4 color;
 #ifdef GL_ARB_bindless_texture
 flat out sampler2D handle;
 flat out sampler2D secondhandle;
+flat out sampler2D thirdhandle;
 #endif
 
 mat4 getWorldMatrix(vec3 translation, vec3 rotation, vec3 scale);
@@ -49,9 +53,11 @@ void main(void)
     tangent = (TransposeInverseModelView * vec4(Tangent, 1.)).xyz;
     bitangent = (TransposeInverseModelView * vec4(Bitangent, 1.)).xyz;
     uv = Texcoord;
+    uv_bis = SecondTexcoord;
     color = Color.zyxw;
 #ifdef GL_ARB_bindless_texture
     handle = Handle;
     secondhandle = SecondHandle;
+    thirdhandle = ThirdHandle;
 #endif
 }

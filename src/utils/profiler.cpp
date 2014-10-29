@@ -16,8 +16,8 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "profiler.hpp"
-#include "graphics/irr_driver.hpp"
 #include "graphics/glwrap.hpp"
+#include "graphics/2dutils.hpp"
 #include "guiengine/event_handler.hpp"
 #include "guiengine/engine.hpp"
 #include "guiengine/scalable_font.hpp"
@@ -31,8 +31,11 @@
 
 static const char* GPU_Phase[Q_LAST] =
 {
+    "Shadows Cascade 0",
+    "Shadows Cascade 1",
+    "Shadows Cascade 2",
+    "Shadows Cascade 3",
     "Solid Pass 1",
-    "Shadows",
     "RSM",
     "RH",
     "GI",

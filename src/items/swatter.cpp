@@ -83,9 +83,9 @@ Swatter::Swatter(AbstractKart *kart, bool was_bomb,
     }
 
     if (kart->getIdent() == "nolok")
-        m_swat_sound = sfx_manager->createSoundSource("hammer");
+        m_swat_sound = SFXManager::get()->createSoundSource("hammer");
     else
-        m_swat_sound = sfx_manager->createSoundSource("swatter");
+        m_swat_sound = SFXManager::get()->createSoundSource("swatter");
 }   // Swatter
 
 // ----------------------------------------------------------------------------
@@ -100,7 +100,7 @@ Swatter::~Swatter()
     }
     if (m_swat_sound)
     {
-        sfx_manager->deleteSFX(m_swat_sound);
+        m_swat_sound->deleteSFX();
     }
 }   // ~Swatter
 
@@ -275,7 +275,7 @@ void Swatter::squashThingsAround()
     assert(swatter_node);
     Vec3 swatter_pos = swatter_node->getAbsolutePosition();
 
-    m_swat_sound->position(swatter_pos);
+    m_swat_sound->setPosition(swatter_pos);
     m_swat_sound->play();
 
     // Squash karts around

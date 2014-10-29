@@ -93,6 +93,10 @@ std::string getScript(std::string scriptName)
 */
 void ScriptEngine::runScript(std::string scriptName)
 {
+    return; // Scripting disabled for now
+
+    // TODO: this code seems to fetch the script from disk and compile it on every execution?
+    // A cache should be created.
 
     int r;
     // Compile the script code

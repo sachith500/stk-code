@@ -9,25 +9,14 @@
 #include "../lib/irrlicht/source/Irrlicht/CMeshSceneNode.h"
 
 #include <vector>
+#include "material.hpp"
 
-enum MeshMaterial
-{
-    MAT_DEFAULT,
-    MAT_ALPHA_REF,
-    MAT_NORMAL_MAP,
-    MAT_GRASS,
-    MAT_SPHEREMAP,
-    MAT_SPLATTING,
-    MAT_UNLIT,
-    MAT_DETAIL,
-    MAT_COUNT
-};
+class Material;
 
 enum TransparentMaterial
 {
     TM_DEFAULT,
     TM_ADDITIVE,
-    TM_BUBBLE,
     TM_DISPLACEMENT,
     TM_COUNT
 };
@@ -36,7 +25,7 @@ struct GLMesh {
     GLuint vao;
     GLuint vertex_buffer;
     GLuint index_buffer;
-    video::ITexture *textures[6];
+    video::ITexture *textures[8];
     GLenum PrimitiveType;
     GLenum IndexType;
     size_t IndexCount;
@@ -47,9 +36,12 @@ struct GLMesh {
     video::E_VERTEX_TYPE VAOType;
     uint64_t TextureHandles[6];
     scene::IMeshBuffer *mb;
+#ifdef DEBUG
+    std::string debug_name;
+#endif
 };
 
-GLMesh allocateMeshBuffer(scene::IMeshBuffer* mb);
+GLMesh allocateMeshBuffer(scene::IMeshBuffer* mb, const std::string& debug_name);
 void fillLocalBuffer(GLMesh &, scene::IMeshBuffer* mb);
 video::E_VERTEX_TYPE getVTXTYPEFromStride(size_t stride);
 GLuint createVAO(GLuint vbo, GLuint idx, video::E_VERTEX_TYPE type);
@@ -65,8 +57,10 @@ protected:
     bool m_culledForPlayerCam;
     bool m_culledForShadowCam[4];
     bool m_culledForRSMCam;
+    std::string m_debug_name;
+
 public:
-    PtrVector<GLMesh, REF> MeshSolidMaterial[MAT_COUNT];
+    PtrVector<GLMesh, REF> MeshSolidMaterial[Material::SHADERTYPE_COUNT];
     PtrVector<GLMesh, REF> TransparentMesh[TM_COUNT];
     virtual void updateNoGL() = 0;
     virtual void updateGL() = 0;
@@ -185,12 +179,11 @@ class ListDisplacement : public MiscList<ListDisplacement, GLMesh *, core::matri
 class ListInstancedGlow : public Singleton<ListInstancedGlow>, public std::vector<GLMesh *>
 {};
 
-// Forward pass (for transparents meshes)
-void drawBubble(const GLMesh &mesh, const core::matrix4 &ModelViewProjectionMatrix);
+Material::ShaderType MaterialTypeToMeshMaterial(video::E_MATERIAL_TYPE MaterialType, video::E_VERTEX_TYPE tp,
+    Material* material, Material* layer2Material);
+TransparentMaterial MaterialTypeToTransparentMaterial(video::E_MATERIAL_TYPE, f32 MaterialTypeParam, Material* material);
 
-MeshMaterial MaterialTypeToMeshMaterial(video::E_MATERIAL_TYPE, video::E_VERTEX_TYPE);
-TransparentMaterial MaterialTypeToTransparentMaterial(video::E_MATERIAL_TYPE, f32 MaterialTypeParam);
-
-void InitTextures(GLMesh &mesh, MeshMaterial);
+void InitTextures(GLMesh &mesh, Material::ShaderType);
+void InitTexturesTransparent(GLMesh &mesh);
 
 #endif // STKMESH_H

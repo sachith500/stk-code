@@ -250,8 +250,8 @@ void FeatureUnlockedCutScene::addUnlockedPicture(irr::video::ITexture* picture,
 {
     if (picture == NULL)
     {
-        std::cerr << "[FeatureUnlockedCutScene::addUnlockedPicture] WARNING: unlockable has no picture : "
-                  << core::stringc(msg.c_str()).c_str() << "\n";
+        Log::warn("FeatureUnlockedCutScene::addUnlockedPicture", "Unlockable has no picture: %s",
+            core::stringc(msg.c_str()).c_str());
         picture = irr_driver->getTexture(file_manager->getAsset(FileManager::GUI,"main_help.png"));
 
     }
@@ -278,14 +278,16 @@ void FeatureUnlockedCutScene::init()
 
     const int unlockedStuffCount = m_unlocked_stuff.size();
 
-    if (unlockedStuffCount == 0)  std::cerr << "There is nothing in the unlock chest!!!\n";
+    if (unlockedStuffCount == 0)
+        Log::error("FeatureUnlockedCutScene::init", "There is nothing in the unlock chest");
 
     m_all_kart_models.clearAndDeleteAll();
     for (int n=0; n<unlockedStuffCount; n++)
     {
         if (m_unlocked_stuff[n].m_unlock_model.size() > 0)
         {
-            m_unlocked_stuff[n].m_root_gift_node = irr_driver->addMesh( irr_driver->getMesh(m_unlocked_stuff[n].m_unlock_model) );
+            m_unlocked_stuff[n].m_root_gift_node = irr_driver->addMesh(
+                irr_driver->getMesh(m_unlocked_stuff[n].m_unlock_model), "unlocked_model");
             m_unlocked_stuff[n].m_scale = 0.7f;
             //m_unlocked_stuff[n].m_root_gift_node->setScale(core::vector3df(0.2f, 0.2f, 0.2f));
         }
@@ -335,13 +337,13 @@ void FeatureUnlockedCutScene::init()
                                                    m_unlocked_stuff[n].m_w,
                                                    m_unlocked_stuff[n].m_h);
             m_unlocked_stuff[n].m_root_gift_node = irr_driver->getSceneManager()->addEmptySceneNode();
-            m_unlocked_stuff[n].m_side_1 = irr_driver->addMesh(mesh, m_unlocked_stuff[n].m_root_gift_node);
+            m_unlocked_stuff[n].m_side_1 = irr_driver->addMesh(mesh, "unlocked_picture", m_unlocked_stuff[n].m_root_gift_node);
             //mesh->drop();
 
             mesh = irr_driver->createTexturedQuadMesh(&m,
                 m_unlocked_stuff[n].m_w,
                 m_unlocked_stuff[n].m_h);
-            m_unlocked_stuff[n].m_side_2 = irr_driver->addMesh(mesh, m_unlocked_stuff[n].m_root_gift_node);
+            m_unlocked_stuff[n].m_side_2 = irr_driver->addMesh(mesh, "unlocked_picture",  m_unlocked_stuff[n].m_root_gift_node);
             m_unlocked_stuff[n].m_side_2->setRotation(core::vector3df(0.0f, 180.0f, 0.0f));
             //mesh->drop();
 #ifdef DEBUG
@@ -350,7 +352,7 @@ void FeatureUnlockedCutScene::init()
         }
         else
         {
-            std::cerr << "Malformed unlocked goody!!!\n";
+            Log::error("FeatureUnlockedCutScene::init", "Malformed unlocked goody");
         }
     }
 
@@ -402,8 +404,8 @@ void FeatureUnlockedCutScene::onUpdate(float dt)
                 else if (n > 1) pos.X += 1.0f*dt*(n - 0.3f);
 
                 //else            pos.X += 6.2f*dt*float( int((n + 1)/2) );
-                //std::cout << "Object " << n << " moving by " <<
-                //  (n % 2 == 0 ? -4.0f : 4.0f)*float( n/2 + 1 ) << std::endl;
+                //Log::info("FeatureUnlockedCutScene", "Object %d moving by %f", n,
+                //    (n % 2 == 0 ? -4.0f : 4.0f)*float( n/2 + 1 ));
             }
             else
             {
@@ -429,16 +431,15 @@ void FeatureUnlockedCutScene::onUpdate(float dt)
 
         if (!m_unlocked_stuff[n].m_pictures.empty())
         {
-            const int pictureCount = m_unlocked_stuff[n].m_pictures.size();
+            const int picture_count = (int)m_unlocked_stuff[n].m_pictures.size();
 
-            if (pictureCount > 1)
+            if (picture_count > 1)
             {
                 const int previousTextureID = m_unlocked_stuff[n].m_curr_image;
-                const int textureID = int(m_global_time/1.2f) % pictureCount;
+                const int textureID = int(m_global_time/1.2f) % picture_count;
 
                 if (textureID != previousTextureID)
                 {
-                    scene::IMeshSceneNode* node = (scene::IMeshSceneNode*)m_unlocked_stuff[n].m_root_gift_node;
                     scene::IMesh* mesh = m_unlocked_stuff[n].m_side_1->getMesh();
 
                     assert(mesh->getMeshBufferCount() == 1);
@@ -468,7 +469,7 @@ void FeatureUnlockedCutScene::onUpdate(float dt)
 
                     m_unlocked_stuff[n].m_curr_image = textureID;
                 }   // textureID != previousTextureID
-            }   // if pictureCount>1
+            }   // if picture_count>1
         }   // if !m_unlocked_stuff[n].m_pictures.empty()
 
         float scale = m_unlocked_stuff[n].m_scale;
@@ -515,7 +516,7 @@ void FeatureUnlockedCutScene::addUnlockedTrack(const Track* track)
 {
     if (track == NULL)
     {
-        std::cerr << "ERROR: Unlocked track does not exist???\n";
+        Log::error("FeatureUnlockedCutScene::addUnlockedTrack", "Unlocked track does not exist");
         return;
     }
 
@@ -532,23 +533,23 @@ void FeatureUnlockedCutScene::addUnlockedGP(const GrandPrixData* gp)
     std::vector<ITexture*> images;
     if (gp == NULL)
     {
-        std::cerr << "ERROR: Unlocked GP does not exist???\n";
+        Log::error("FeatureUnlockedCutScene::addUnlockedGP", "Unlocked GP does not exist");
         video::ITexture* WTF_image = irr_driver->getTexture( file_manager->getAsset(FileManager::GUI,"main_help.png"));
         images.push_back(WTF_image);
     }
     else
     {
         const std::vector<std::string> gptracks = gp->getTrackNames();
-        const int trackAmount = gptracks.size();
+        const int track_amount = (int)gptracks.size();
 
-        if (trackAmount == 0)
+        if (track_amount == 0)
         {
-            std::cerr << "ERROR: Unlocked GP is empty???\n";
+            Log::error("FeatureUnlockedCutScene::addUnlockedGP", "Unlocked GP is empty");
             video::ITexture* WTF_image = irr_driver->getTexture( file_manager->getAsset(FileManager::GUI,"main_help.png"));
             images.push_back(WTF_image);
         }
 
-        for (int t=0; t<trackAmount; t++)
+        for (int t=0; t<track_amount; t++)
         {
             Track* track = track_manager->getTrack(gptracks[t]);
 

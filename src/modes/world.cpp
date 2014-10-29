@@ -30,6 +30,7 @@
 #include "graphics/hardware_skinning.hpp"
 #include "io/file_manager.hpp"
 #include "input/device_manager.hpp"
+#include "input/keyboard_device.hpp"
 #include "items/projectile_manager.hpp"
 #include "karts/controller/player_controller.hpp"
 #include "karts/controller/end_controller.hpp"
@@ -258,7 +259,7 @@ void World::reset()
     music_manager->stopMusic();
 
     // Enable SFX again
-    sfx_manager->resumeAll();
+    SFXManager::get()->resumeAll();
 
     projectile_manager->cleanup();
     race_manager->reset();
@@ -550,7 +551,7 @@ void World::terminateRace()
         results->clearHighscores();
     }
 
-    StateManager::get()->pushScreen(results);
+    results->push();
     WorldStatus::terminateRace();
 }   // terminateRace
 
@@ -571,7 +572,7 @@ void World::resetAllKarts()
     if(UserConfigParams::m_track_debug)
     {
         // Loop over all karts, in case that some karts are dfferent
-        for(unsigned int kart_id=0; kart_id<m_karts.size(); kart_id++)
+        for(unsigned int kart_id=0; kart_id<(unsigned int)m_karts.size(); kart_id++)
         {
             for(unsigned int rescue_pos=0;
                 rescue_pos<getNumberOfRescuePositions();
@@ -827,7 +828,7 @@ void World::updateWorld(float dt)
         if (m_schedule_exit_race)
         {
             m_schedule_exit_race = false;
-            race_manager->exitRace();
+            race_manager->exitRace(false);
             race_manager->setAIKartOverride("");
 
             StateManager::get()->resetAndGoToScreen(MainMenuScreen::getInstance());
@@ -844,7 +845,7 @@ void World::updateWorld(float dt)
                 race_manager->setReverseTrack(false);
 
                 // Use keyboard 0 by default (FIXME: let player choose?)
-                InputDevice* device = input_manager->getDeviceList()->getKeyboard(0);
+                InputDevice* device = input_manager->getDeviceManager()->getKeyboard(0);
 
                 // Create player and associate player with keyboard
                 StateManager::get()->createActivePlayer(PlayerManager::getCurrentPlayer(),
@@ -861,9 +862,11 @@ void World::updateWorld(float dt)
 
                 // ASSIGN should make sure that only input from assigned devices
                 // is read.
-                input_manager->getDeviceList()->setAssignMode(ASSIGN);
-                input_manager->getDeviceList()
+                input_manager->getDeviceManager()->setAssignMode(ASSIGN);
+                input_manager->getDeviceManager()
                     ->setSinglePlayer( StateManager::get()->getActivePlayer(0) );
+
+                delete this;
 
                 StateManager::get()->enterGameState();
                 race_manager->setupPlayerKartInfo();
@@ -871,6 +874,8 @@ void World::updateWorld(float dt)
             }
             else
             {
+                delete this;
+
                 if (race_manager->raceWasStartedFromOverworld())
                 {
                     OverWorld::enterOverWorld();
@@ -928,7 +933,7 @@ void World::update(float dt)
     }
 
     PROFILER_PUSH_CPU_MARKER("World::update (AI)", 0x40, 0x7F, 0x00);
-    const int kart_amount = m_karts.size();
+    const int kart_amount = (int)m_karts.size();
     for (int i = 0 ; i < kart_amount; ++i)
     {
         // Update all karts that are not eliminated
@@ -1022,7 +1027,7 @@ void World::updateHighscores(int* best_highscore_rank, int* best_finish_time,
     // if we ever decide to display a message (e.g. during a race)
     unsigned int *index = new unsigned int[m_karts.size()];
 
-    const unsigned int kart_amount = m_karts.size();
+    const unsigned int kart_amount = (unsigned int) m_karts.size();
     for (unsigned int i=0; i<kart_amount; i++ )
     {
         index[i] = 999; // first reset the contents of the array
@@ -1185,7 +1190,7 @@ void World::pause(Phase phase)
 {
     if (m_stop_music_when_dialog_open)
         music_manager->pauseMusic();
-    sfx_manager->pauseAll();
+    SFXManager::get()->pauseAll();
 
     WorldStatus::pause(phase);
 }   // pause
@@ -1195,7 +1200,7 @@ void World::unpause()
 {
     if (m_stop_music_when_dialog_open)
         music_manager->resumeMusic();
-    sfx_manager->resumeAll();
+    SFXManager::get()->resumeAll();
 
     WorldStatus::unpause();
 
@@ -1231,7 +1236,7 @@ void World::escapePressed()
 
 bool World::isFogEnabled() const
 {
-    return m_track != NULL && m_track->isFogEnabled();
+    return !m_force_disable_fog && (m_track != NULL && m_track->isFogEnabled());
 }
 
 /* EOF */

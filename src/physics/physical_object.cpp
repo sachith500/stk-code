@@ -602,13 +602,15 @@ void PhysicalObject::setInteraction(std::string interaction){
 
 // ----------------------------------------------------------------------------
 /** Remove body from physics dynamic world interaction type for object*/
-void PhysicalObject::removeBody(){
+void PhysicalObject::removeBody()
+{
     World::getWorld()->getPhysics()->removeBody(m_body);
 }   // Remove body
 
 // ----------------------------------------------------------------------------
 /** Add body to physics dynamic world */
-void PhysicalObject::addBody(){
+void PhysicalObject::addBody()
+{
     World::getWorld()->getPhysics()->addBody(m_body);
 }   // Add body
 

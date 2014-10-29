@@ -1,6 +1,6 @@
 #include "texturemanager.hpp"
 #include <fstream>
-#include <string>
+#include <sstream>
 #include "../../lib/irrlicht/source/Irrlicht/COpenGLTexture.h"
 #include "irr_driver.hpp"
 
@@ -16,10 +16,13 @@ GLuint getDepthTexture(irr::video::ITexture *tex)
     return static_cast<irr::video::COpenGLFBOTexture*>(tex)->DepthBufferTexture;
 }
 
-std::set<irr::video::ITexture *> AlreadyTransformedTexture;
+static std::set<irr::video::ITexture *> AlreadyTransformedTexture;
+static std::map<int, video::ITexture*> unicolor_cache;
+
 void resetTextureTable()
 {
     AlreadyTransformedTexture.clear();
+    unicolor_cache.clear();
 }
 
 void compressTexture(irr::video::ITexture *tex, bool srgb, bool premul_alpha)
@@ -167,16 +170,29 @@ void saveCompressedTexture(const std::string& compressed_tex)
     delete[] data;
 }
 
-static unsigned colorcount = 0;
-
-video::ITexture* getUnicolorTexture(video::SColor c)
+video::ITexture* getUnicolorTexture(const video::SColor &c)
 {
-    video::SColor tmp[4] = {
-        c, c, c, c
-    };
-    video::IImage *img = irr_driver->getVideoDriver()->createImageFromData(video::ECF_A8R8G8B8, core::dimension2d<u32>(2, 2), tmp);
-    img->grab();
-    std::string name("color");
-    name += colorcount++;
-    return irr_driver->getVideoDriver()->addTexture(name.c_str(), img);
+    std::map<int, video::ITexture*>::iterator it = unicolor_cache.find(c.color);
+    if (it != unicolor_cache.end())
+    {
+        it->second->grab();
+        return it->second;
+    }
+    else
+    {
+        unsigned tmp[4] = {
+            c.color,
+            c.color,
+            c.color,
+            c.color
+        };
+        video::IImage *img = irr_driver->getVideoDriver()->createImageFromData(video::ECF_A8R8G8B8, core::dimension2d<u32>(2, 2), tmp);
+        img->grab();
+        std::stringstream name;
+        name << "color" << c.color;
+        video::ITexture* tex = irr_driver->getVideoDriver()->addTexture(name.str().c_str(), img);
+        unicolor_cache[c.color] = tex;
+        img->drop();
+        return tex;
+    }
 }

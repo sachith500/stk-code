@@ -175,14 +175,17 @@ void OptionsScreenVideo::init()
 
         const std::vector<IrrDriver::VideoMode>& modes =
                                                 irr_driver->getVideoModes();
-        const int amount = modes.size();
+        const int amount = (int)modes.size();
 
         bool found_config_res = false;
 
         // for some odd reason, irrlicht sometimes fails to report the good
         // old standard resolutions
         // those are always useful for windowed mode
+        // allow 800x600 only for debug mode
+#ifdef DEBUG
         bool found_800_600 = false;
+#endif
         bool found_1024_640 = false;
         bool found_1024_768 = false;
 
@@ -200,7 +203,11 @@ void OptionsScreenVideo::init()
 
             if (w == 800 && h == 600)
             {
+#ifdef DEBUG
                 found_800_600 = true;
+#else
+                continue;
+#endif
             }
             else if (w == 1024 && h == 640)
             {
@@ -246,7 +253,9 @@ void OptionsScreenVideo::init()
 
             if (w == 800 && h == 600)
             {
+#ifdef DEBUG
                 found_800_600 = true;
+#endif
             }
             else if (w == 1024 && h == 640)
             {
@@ -284,10 +293,12 @@ void OptionsScreenVideo::init()
 #undef ABOUT_EQUAL
         }
 
+#ifdef DEBUG
         if (!found_800_600)
         {
             res->addItem(L"800\u00D7600", "800x600", "/gui/screen43.png");
         }
+#endif
         if (!found_1024_640)
         {
             res->addItem(L"1024\u00D7640", "1024x640", "/gui/screen1610.png");
@@ -307,15 +318,10 @@ void OptionsScreenVideo::init()
                                          (int)UserConfigParams::m_height);
 
 
-    if (res->setSelection(searching_for, PLAYER_ID_GAME_MASTER,
+    if (!res->setSelection(searching_for, PLAYER_ID_GAME_MASTER,
                           false /* focus it */, true /* even if deactivated*/))
     {
-        // ok found
-    }
-    else
-    {
-        std::cerr << "[OptionsScreenVideo] Cannot find resolution '"
-                  << searching_for << "'\n";
+        Log::error("OptionsScreenVideo", "Cannot find resolution %s", searching_for);
     }
 
 
@@ -506,8 +512,7 @@ void OptionsScreenVideo::eventCallback(Widget* widget, const std::string& name,
         int w = -1, h = -1;
         if (sscanf(res.c_str(), "%ix%i", &w, &h) != 2 || w == -1 || h == -1)
         {
-            std::cerr << "Failed to decode resolution : " << res.c_str()
-                      << std::endl;
+            Log::error("OptionsScreenVideo", "Failed to decode resolution %s", res.c_str());
             return;
         }
 

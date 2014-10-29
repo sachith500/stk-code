@@ -18,6 +18,7 @@
 
 #include "states_screens/kart_selection.hpp"
 
+#include "audio/sfx_manager.hpp"
 #include "challenges/unlock_manager.hpp"
 #include "config/player_manager.hpp"
 #include "config/player_profile.hpp"
@@ -359,7 +360,7 @@ PlayerKartWidget::PlayerKartWidget(KartSelectionScreen* parent,
                             kart_model.getWheelGraphicsPosition(3) );
     for(size_t i=0 ; i < kart_model.getSpeedWeightedObjectsCount() ; i++)
     {
-        const SpeedWeightedObject&  obj = kart_model.getSpeedWeightedObject(i);
+        const SpeedWeightedObject&  obj = kart_model.getSpeedWeightedObject((int)i);
         m_model_view->addModel(obj.m_model, obj.m_position);
     }
     m_model_view->setRotateContinuously( 35.0f );
@@ -577,7 +578,7 @@ void PlayerKartWidget::markAsReady()
     delete m_player_ident_spinner;
     m_player_ident_spinner = NULL;
 
-    sfx_manager->quickSound( "wee" );
+    SFXManager::get()->quickSound( "wee" );
 
     m_model_view->setRotateTo(30.0f, 1.0f);
 
@@ -904,6 +905,9 @@ void KartHoverListener::onSelectionChanged(DynamicRibbonWidget* theWidget,
         return;
     }
 
+    if (m_parent->m_kart_widgets[playerID].getKartInternalName() == selectionID)
+        return; // already selected
+
     m_parent->updateKartWidgetModel(playerID, selectionID, selectionText);
     m_parent->m_kart_widgets[playerID].setKartInternalName(selectionID);
     m_parent->updateKartStats(playerID, selectionID);
@@ -960,7 +964,7 @@ void KartSelectionScreen::beforeAddingWidget()
 
     const std::vector<std::string>& groups =
         kart_properties_manager->getAllGroups();
-    const int group_amount = groups.size();
+    const int group_amount = (int)groups.size();
 
     // add all group first
     if (group_amount > 1)
@@ -1027,7 +1031,7 @@ void KartSelectionScreen::init()
 
     m_kart_widgets.clearAndDeleteAll();
     StateManager::get()->resetActivePlayers();
-    input_manager->getDeviceList()->setAssignMode(DETECT_NEW);
+    input_manager->getDeviceManager()->setAssignMode(DETECT_NEW);
 
     DynamicRibbonWidget* w = getWidget<DynamicRibbonWidget>("karts");
     assert( w != NULL );
@@ -1065,7 +1069,7 @@ void KartSelectionScreen::init()
     else */
     // For now this is what will happen
     {
-        joinPlayer( input_manager->getDeviceList()->getLatestUsedDevice(),
+        joinPlayer( input_manager->getDeviceManager()->getLatestUsedDevice(),
                     true );
         w->updateItemDisplay();
     }
@@ -1079,7 +1083,7 @@ void KartSelectionScreen::init()
     // This flag will cause that a 'fire' event will be mapped to 'select' (if
     // 'fire' is not assigned to a GUI event). This is done to support the old
     // way of player joining by pressing 'fire' instead of 'select'.
-    input_manager->getDeviceList()->mapFireToSelect(true);
+    input_manager->getDeviceManager()->mapFireToSelect(true);
 
 }   // init
 
@@ -1088,7 +1092,7 @@ void KartSelectionScreen::init()
 void KartSelectionScreen::tearDown()
 {
     // Reset the 'map fire to select' option of the device manager
-    input_manager->getDeviceList()->mapFireToSelect(false);
+    input_manager->getDeviceManager()->mapFireToSelect(false);
 
     // if a removed widget is currently shrinking down, remove it upon leaving
     // the screen
@@ -1149,7 +1153,7 @@ bool KartSelectionScreen::joinPlayer(InputDevice* device, bool first_player)
     {
         Log::error("[KartSelectionScreen]", "Maximum number of players "
                   "reached");
-        sfx_manager->quickSound( "anvil" );
+        SFXManager::get()->quickSound( "anvil" );
         return false;
     }
 
@@ -1259,7 +1263,7 @@ bool KartSelectionScreen::joinPlayer(InputDevice* device, bool first_player)
 
     if (!m_multiplayer)
     {
-        input_manager->getDeviceList()->setSinglePlayer( StateManager::get()
+        input_manager->getDeviceManager()->setSinglePlayer( StateManager::get()
                                                          ->getActivePlayer(0));
     }
 
@@ -1296,7 +1300,7 @@ bool KartSelectionScreen::playerQuit(StateManager::ActivePlayer* player)
             // then they can't back out
             if (m_kart_widgets[n].isReady())
             {
-                sfx_manager->quickSound( "anvil" );
+                SFXManager::get()->quickSound( "anvil" );
                 return true;
             }
 
@@ -1434,7 +1438,7 @@ void KartSelectionScreen::playerConfirm(const int playerID)
 
     if (m_kart_widgets[playerID].getKartInternalName().size() == 0)
     {
-        sfx_manager->quickSound( "anvil" );
+        SFXManager::get()->quickSound( "anvil" );
         return;
     }
 
@@ -1442,8 +1446,8 @@ void KartSelectionScreen::playerConfirm(const int playerID)
 
     // Check if we have enough karts for everybody. If there are more players
     // than karts then just allow duplicates
-    const int availableKartCount = w->getItems().size();
-    const bool willNeedDuplicates = (amount > availableKartCount);
+    const int available_kart_count = (int) w->getItems().size();
+    const bool will_need_duplicates = (amount > available_kart_count);
 
     // make sure no other player selected the same identity or kart
     for (int n=0; n<amount; n++)
@@ -1460,13 +1464,13 @@ void KartSelectionScreen::playerConfirm(const int playerID)
                                              m_kart_widgets[playerID]);
 
         if (player_ready && (ident_conflict || kart_conflict) &&
-                !willNeedDuplicates)
+                !will_need_duplicates)
         {
             if (UserConfigParams::logGUI())
                 Log::warn("[KartSelectionScreen]", "You can't select this identity "
                        "or kart, someone already took it!!");
 
-            sfx_manager->quickSound( "anvil" );
+            SFXManager::get()->quickSound( "anvil" );
             return;
         }
 
@@ -1597,7 +1601,7 @@ void KartSelectionScreen::updateKartWidgetModel(uint8_t widget_id,
                           kart_model.getWheelGraphicsPosition(3) );
             for (size_t i = 0; i < kart_model.getSpeedWeightedObjectsCount(); i++)
             {
-                const SpeedWeightedObject&  obj = kart_model.getSpeedWeightedObject(i);
+                const SpeedWeightedObject&  obj = kart_model.getSpeedWeightedObject((int)i);
                 w3->addModel(obj.m_model, obj.m_position);
             }
             w3->update(0);
@@ -1663,7 +1667,7 @@ void KartSelectionScreen::eventCallback(Widget* widget,
                                   " lost their selection when switching tabs!!!",n);
 
                     // Select a random kart in this case
-                    const int count = w->getItems().size();
+                    const int count = (int) w->getItems().size();
                     if (count > 0)
                     {
                         // FIXME: two players may be given the same kart by
@@ -1783,7 +1787,7 @@ void KartSelectionScreen::allPlayersDone()
             Log::info("[KartSelectionScreen]", "     Player %u is %s on %s",n,
                     core::stringc(
                           players[n].getConstProfile()->getName().c_str()).c_str(),
-                    players[n].getDevice()->m_name.c_str());
+                    players[n].getDevice()->getName().c_str());
         }
     }
 
@@ -1804,7 +1808,7 @@ void KartSelectionScreen::allPlayersDone()
     std::vector<ItemDescription> items = w->getItems();
 
     // remove the 'random' item itself
-    const int item_count = items.size();
+    const int item_count = (int) items.size();
     for (int n=0; n<item_count; n++)
     {
         if (items[n].m_code_name == RANDOM_KART_ID)
@@ -1862,16 +1866,16 @@ void KartSelectionScreen::allPlayersDone()
     }
 
     // ---- Switch to assign mode
-    input_manager->getDeviceList()->setAssignMode(ASSIGN);
+    input_manager->getDeviceManager()->setAssignMode(ASSIGN);
 
     if (!m_multiplayer)
     {
-        input_manager->getDeviceList()
+        input_manager->getDeviceManager()
         ->setSinglePlayer( StateManager::get()->getActivePlayer(0) );
     }
     else
     {
-        input_manager->getDeviceList()->setSinglePlayer( NULL );
+        input_manager->getDeviceManager()->setSinglePlayer( NULL );
     }
 
     // ---- Go to next screen or return to overworld
@@ -1883,7 +1887,7 @@ void KartSelectionScreen::allPlayersDone()
     }
     else
     {
-        StateManager::get()->pushScreen( RaceSetupScreen::getInstance() );
+        RaceSetupScreen::getInstance()->push();
     }
 }   // allPlayersDone
 
@@ -1985,7 +1989,7 @@ bool KartSelectionScreen::validateKartChoices()
     // players than karts then just allow duplicates
     DynamicRibbonWidget* w = getWidget<DynamicRibbonWidget>("karts");
     assert( w != NULL );
-    const unsigned int availableKartCount = w->getItems().size();
+    const unsigned int availableKartCount = (unsigned int)w->getItems().size();
     if (amount > availableKartCount) return true;
 
     // Check everyone for duplicates
